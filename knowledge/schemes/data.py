@@ -205,7 +205,7 @@ SCHEMES_DATA = [
                 "operator": "in",
                 "value": ["self_employed", "unemployed", "farmer"],
                 "description": "Applicant must be setting up or running non-corporate small enterprise",
-                "disqualification_reason": "Salaried employees cannot apply for Mudra business loans"
+                "disqualification_reason": "Applicant occupation is not eligible for Mudra loans"
             }
         ]
     },
@@ -604,7 +604,7 @@ SCHEMES_DATA = [
                 "operator": "in",
                 "value": ["student", "unemployed"],
                 "description": "Applicant must be a student or job-seeker looking for apprenticeships",
-                "disqualification_reason": "Applicant is already in salaried formal employment"
+                "disqualification_reason": "Applicant occupation is not eligible for apprenticeship training"
             }
         ]
     },

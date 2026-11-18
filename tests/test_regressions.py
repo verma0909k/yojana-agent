@@ -87,3 +87,18 @@ def test_fix2_overmatching_rules_tightened():
     res_kisan_fail = evaluate_all(profile=landless_farmer, schemes=[schemes_dict["pm-kisan"]])[0]
     assert res_kisan_fail.status == EligibilityStatus.NOT_ELIGIBLE
 
+
+def test_fix3_disqualification_messages_informative():
+    """FIX 3: Disqualification messages append actual value and requirement.
+
+    Senior persona vs PM-Mudra produces a reason containing 'retired' and not 'salaried'.
+    """
+    schemes_dict = {s.id: s for s in load_all_schemes()}
+    senior = get_senior_citizen_persona()
+    res_mudra = evaluate_all(profile=senior, schemes=[schemes_dict["pm-mudra"]])[0]
+
+    assert res_mudra.status == EligibilityStatus.NOT_ELIGIBLE
+    assert "retired" in res_mudra.deciding_rule
+    assert "salaried" not in res_mudra.deciding_rule
+
+

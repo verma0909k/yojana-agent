@@ -35,7 +35,7 @@
         "unemployed"
       ],
       "description": "Applicant must be a student or job-seeker looking for apprenticeships",
-      "disqualification_reason": "Applicant is already in salaried formal employment"
+      "disqualification_reason": "Applicant occupation is not eligible for apprenticeship training"
     }
   ]
 }

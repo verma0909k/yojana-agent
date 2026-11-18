@@ -83,7 +83,30 @@ def evaluate_scheme(profile: CitizenProfile, scheme: Scheme) -> MatchResult:
         if passed:
             satisfied_reasons.append(crit.description)
         else:
-            disqualifying_reasons.append(crit.disqualification_reason)
+            # Build informative disqualification with actual value and requirement
+            if crit.operator == CriterionOperator.IN:
+                req_val = ", ".join(str(v) for v in expected_val) if isinstance(expected_val, list) else str(expected_val)
+                req_str = f"one of {req_val}"
+            elif crit.operator == CriterionOperator.NOT_IN:
+                req_val = ", ".join(str(v) for v in expected_val) if isinstance(expected_val, list) else str(expected_val)
+                req_str = f"none of {req_val}"
+            elif crit.operator == CriterionOperator.EQ:
+                req_str = f"{expected_val}"
+            elif crit.operator == CriterionOperator.NEQ:
+                req_str = f"not {expected_val}"
+            elif crit.operator == CriterionOperator.GTE:
+                req_str = f">= {expected_val}"
+            elif crit.operator == CriterionOperator.LTE:
+                req_str = f"<= {expected_val}"
+            elif crit.operator == CriterionOperator.IS_TRUE:
+                req_str = "True"
+            elif crit.operator == CriterionOperator.IS_FALSE:
+                req_str = "False"
+            else:
+                req_str = f"{expected_val}"
+
+            detail = f" (your {crit.field}: {actual_val}; required: {req_str})"
+            disqualifying_reasons.append(f"{crit.disqualification_reason}{detail}")
 
     # 3. Determine Final Verdict
     if disqualifying_reasons:
