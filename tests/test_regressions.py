@@ -140,4 +140,87 @@ def test_fix4_json_single_source_of_truth(tmp_path):
         load_all_schemes(directory=temp_dir)
 
 
+def test_fix5_hinglish_intake_parser():
+    """FIX 5: Hinglish/Hindi intake parser with negation and entity extraction (18 test phrases)."""
+    from experience.intake.hinglish import NaturalLanguageIntake
+    from shared.schemas import CitizenProfile, Gender
+
+    intake = NaturalLanguageIntake()
+
+    # 1. "BPL card nahi hai" -> is_bpl is False
+    p1 = intake.parse_user_input("BPL card nahi hai")
+    assert p1.is_bpl.value is False
+
+    # 2. "no bank account" -> has_bank_account is False
+    p2 = intake.parse_user_input("I have no bank account")
+    assert p2.has_bank_account.value is False
+
+    # 3. "bank khata nahi" -> has_bank_account is False
+    p3 = intake.parse_user_input("mere paas bank khata nahi hai")
+    assert p3.has_bank_account.value is False
+
+    # 4. "आधार नहीं है" -> has_aadhaar is False
+    p4 = intake.parse_user_input("मेरे पास आधार नहीं है")
+    assert p4.has_aadhaar.value is False
+
+    # 5. Plain "ration card" must NOT imply BPL
+    p5 = intake.parse_user_input("mere paas ration card hai")
+    assert p5.is_bpl.known is False
+
+    # 6. "APL card" sets is_bpl False
+    p6 = intake.parse_user_input("mere paas APL card hai")
+    assert p6.is_bpl.value is False
+
+    # 7. "gareeb" sets is_bpl True with confidence 0.6
+    p7 = intake.parse_user_input("mai gareeb hu")
+    assert p7.is_bpl.value is True
+    assert p7.is_bpl.confidence == 0.6
+
+    # 8. Word boundaries prevent false positive on "Raman" or "manager"
+    p8 = intake.parse_user_input("My manager Raman is working")
+    assert p8.gender.known is False
+
+    # 9. Female extraction with word boundaries
+    p9 = intake.parse_user_input("I am a woman from Bihar")
+    assert p9.gender.value == Gender.FEMALE
+
+    # 10. Land: hectare converts to acre (* 2.471)
+    p10 = intake.parse_user_input("mere paas 2 hectare jameen hai")
+    assert p10.land_holding_acres.value == 4.94
+
+    # 11. Land: bigha is NOT converted to acre (remains unknown for asker)
+    p11 = intake.parse_user_input("mere paas 5 bigha jameen hai")
+    assert p11.land_holding_acres.known is False
+
+    # 12. Income: lakh extraction
+    p12 = intake.parse_user_input("meri salana aay 1.5 lakh hai")
+    assert p12.annual_income.value == 150000
+
+    # 13. Income: per month extraction multiplies by 12
+    p13 = intake.parse_user_input("mai 10000 per month kamata hu")
+    assert p13.annual_income.value == 120000
+
+    # 14. State: uppercase UP matches Uttar Pradesh
+    p14 = intake.parse_user_input("mai UP se hu aur sign up kar raha hu")
+    assert p14.state.value == "Uttar Pradesh"
+
+    # 15. State: lowercase "up" does not match Uttar Pradesh
+    p15 = intake.parse_user_input("pick it up")
+    assert p15.state.known is False
+
+    # 16. Devanagari digits and age keywords: "उम्र ४५ साल है"
+    p16 = intake.parse_user_input("मेरी उम्र ४५ साल है")
+    assert p16.age.value == 45
+
+    # 17. Education level: BTech maps to technical_degree
+    p17 = intake.parse_user_input("mai BTech 1st year student hu")
+    assert p17.education_level.value == "technical_degree"
+
+    # 18. Disability & Fisheries with negation:
+    p18 = intake.parse_user_input("mai divyang nahi hu par matsya palan karta hu")
+    assert p18.is_disabled.value is False
+    assert p18.works_in_fisheries.value is True
+
+
+
 
