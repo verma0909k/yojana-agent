@@ -96,15 +96,24 @@ def verifier_node(state: AgentState) -> dict:
 
 
 def critic_node(state: AgentState) -> dict:
-    """Performs safety and hallucination audit on generated recommendations."""
+    """Performs safety and hallucination audit on generated recommendations and self-prunes invalid schemes."""
     audit_report = critic.audit(state.match_results)
+
+    pruned = audit_report.get("pruned_count", 0)
+    action_desc = f"Audited claims: approved {len(audit_report['approved_results'])} schemes, pruned {pruned} ungrounded"
 
     trace = TraceStep(
         agent_name="Critic",
-        action="Audited results for groundedness and source validation",
-        details={"valid": audit_report["is_valid"], "flags_count": len(audit_report["flags"])}
+        action=action_desc,
+        details={
+            "valid": audit_report["is_valid"],
+            "flags_count": len(audit_report["flags"]),
+            "pruned_schemes": pruned,
+            "flags": audit_report["flags"][:5]
+        }
     )
     return {
+        "match_results": audit_report["approved_results"],
         "critic_notes": audit_report["flags"] or ["All claims verified and grounded"],
         "trace_steps": state.trace_steps + [trace]
     }

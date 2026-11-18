@@ -69,6 +69,17 @@ def evaluate_scheme(profile: CitizenProfile, scheme: Scheme) -> MatchResult:
 
         passed = _evaluate_condition(actual_val, crit.operator, expected_val)
 
+        # Evaluate compound OR conditions if primary condition is not satisfied
+        if not passed and crit.or_conditions:
+            for alt_crit in crit.or_conditions:
+                alt_fact = getattr(profile, alt_crit.field, None)
+                if alt_fact is not None and alt_fact.known:
+                    alt_val = alt_fact.value.value if hasattr(alt_fact.value, "value") else alt_fact.value
+                    alt_exp = alt_crit.value.value if hasattr(alt_crit.value, "value") else alt_crit.value
+                    if _evaluate_condition(alt_val, alt_crit.operator, alt_exp):
+                        passed = True
+                        break
+
         if passed:
             satisfied_reasons.append(crit.description)
         else:

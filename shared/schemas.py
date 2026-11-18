@@ -107,12 +107,13 @@ class CriterionOperator(str, Enum):
 
 
 class Criterion(BaseModel):
-    """Deterministic eligibility rule condition."""
+    """Deterministic eligibility rule condition, supports atomic and compound OR logic."""
     field: str
     operator: CriterionOperator
     value: Optional[Any] = None
     description: str                       # e.g. "Age must be at least 18"
     disqualification_reason: str           # e.g. "Applicant is younger than 18 years"
+    or_conditions: list[Criterion] = Field(default_factory=list)  # Alternative conditions that also satisfy this criterion
 
 
 class Scheme(BaseModel):

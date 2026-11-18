@@ -18,6 +18,7 @@ from experience.intake.hinglish import NaturalLanguageIntake
 from experience.intake.ocr import DocumentOCR
 from experience.intake.voice import text_to_speech
 from experience.personas.demo_profiles import DEMO_PERSONAS
+from knowledge.monitor import MemoryStore
 from shared.schemas import AgentState, CitizenProfile, EligibilityStatus, Source
 
 st.set_page_config(
@@ -26,13 +27,17 @@ st.set_page_config(
     layout="wide",
 )
 
+# Initialize persistent SQLite memory store
+memory = MemoryStore()
+
 # Header
 st.title("🇮🇳 YojanaAgent: Autonomous Government Scheme-Matching Assistant")
 st.caption("Tell us your situation in Hindi, Hinglish, or English. We find, verify, and fill your schemes autonomously.")
 
 # Initialize session state for citizen profile
 if "profile" not in st.session_state:
-    st.session_state.profile = CitizenProfile()
+    saved = memory.get_profile("active_session")
+    st.session_state.profile = saved if saved else CitizenProfile()
 
 # Sidebar: One-Click Demo Personas & Inputs
 with st.sidebar:
@@ -44,7 +49,8 @@ with st.sidebar:
 
     if selected_persona_name != "Custom Input":
         st.session_state.profile = DEMO_PERSONAS[selected_persona_name]()
-        st.success(f"Loaded: {selected_persona_name}")
+        memory.save_profile("active_session", st.session_state.profile)
+        st.success(f"Loaded & Saved: {selected_persona_name}")
 
     st.markdown("---")
     st.subheader("🌐 Language & Voice Preference")
@@ -63,12 +69,10 @@ with st.sidebar:
 
         ocr = DocumentOCR()
         extracted_text = ocr.extract_text(tmp_path)
-        if not extracted_text:
-            extracted_text = uploaded_file.name.lower()
-
-        doc_facts = ocr.parse_profile_from_document(extracted_text)
+        doc_facts = ocr.parse_profile_from_document(extracted_text, filename=uploaded_file.name)
         for k, v in doc_facts.items():
             st.session_state.profile.set_fact(k, v, confidence=0.95, source=Source.DOCUMENT)
+        memory.save_profile("active_session", st.session_state.profile)
         st.success(f"Extracted from document: {', '.join(doc_facts.keys()) or 'Document verified'}")
 
     st.markdown("---")
@@ -80,6 +84,13 @@ with st.sidebar:
     else:
         st.info("No profile facts recorded yet.")
 
+    if st.button("🔄 Reset Profile & Session", use_container_width=True):
+        st.session_state.profile = CitizenProfile()
+        memory.save_profile("active_session", st.session_state.profile)
+        if "last_state" in st.session_state:
+            del st.session_state["last_state"]
+        st.rerun()
+
 # Main input section
 user_text = st.text_area(
     "Describe your situation / Aapki samasya ya sthiti batayein:",
@@ -90,6 +101,7 @@ user_text = st.text_area(
 if user_text:
     intake = NaturalLanguageIntake()
     st.session_state.profile = intake.parse_user_input(user_text, existing_profile=st.session_state.profile)
+    memory.save_profile("active_session", st.session_state.profile)
 
 col1, col2 = st.columns([1, 4])
 with col1:
@@ -106,6 +118,8 @@ if run_btn or "last_state" in st.session_state:
             )
             final_state = graph.invoke(initial_state)
             st.session_state.last_state = final_state
+            # Persist match results in SQLite
+            memory.save_matches("active_session", final_state.get("match_results", []))
     else:
         final_state = st.session_state.last_state
 
@@ -164,6 +178,7 @@ if run_btn or "last_state" in st.session_state:
             if submitted and user_ans:
                 intake = NaturalLanguageIntake()
                 st.session_state.profile = intake.parse_user_input(user_ans, existing_profile=st.session_state.profile)
+                memory.save_profile("active_session", st.session_state.profile)
                 if "last_state" in st.session_state:
                     del st.session_state["last_state"]
                 st.rerun()

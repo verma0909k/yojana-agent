@@ -1,38 +1,47 @@
-"""Critic Agent: Audits outputs for groundedness, official links, and contradictions."""
+"""Critic Agent: Audits outputs for groundedness, official links, and contradictions, and prunes ungrounded claims."""
 
 from shared.schemas import EligibilityStatus, MatchResult
 
 
 class Critic:
-    """Performs rigorous quality and hallucination checks on scheme matching results."""
+    """Performs rigorous quality, safety, and hallucination checks on scheme matching results."""
 
-    def audit(self, match_results: list[MatchResult]) -> dict[str, list[str]]:
-        """Audits results before presenting to the user.
+    def audit(self, match_results: list[MatchResult]) -> dict:
+        """Audits and self-prunes ungrounded or invalid scheme recommendations.
 
-        Checks:
-        1. Official link presence for each claim.
-        2. Groundedness of reasons (no empty explanations).
-        3. Exclusion of NOT_ELIGIBLE schemes from top recommendations.
+        Rules:
+        1. Official link check: Must have a verifiable http/https portal URL.
+        2. Groundedness check: ELIGIBLE schemes must have at least one verified satisfied reason.
+        3. Exclusion: Rejects ungrounded or malformed schemes from the approved list.
         """
         flags: list[str] = []
         approved_results: list[MatchResult] = []
 
         for result in match_results:
+            scheme_valid = True
+
             # Check 1: Must have official source URL
             if not result.official_url or not result.official_url.startswith("http"):
-                flags.append(f"Scheme '{result.scheme_name}' lacks a valid official portal link.")
+                flags.append(f"Pruned '{result.scheme_name}': Lacks valid official portal URL.")
+                scheme_valid = False
 
-            # Check 2: Reason grounding
+            # Check 2: Reason grounding for ELIGIBLE
             if result.status == EligibilityStatus.ELIGIBLE and not result.satisfied_reasons:
-                flags.append(f"Scheme '{result.scheme_name}' marked ELIGIBLE without satisfied reasons.")
+                flags.append(f"Pruned '{result.scheme_name}': Marked ELIGIBLE without satisfied rule reasons.")
+                scheme_valid = False
 
+            # Check 3: Reason grounding for NOT_ELIGIBLE
             if result.status == EligibilityStatus.NOT_ELIGIBLE and not result.disqualifying_reasons:
-                flags.append(f"Scheme '{result.scheme_name}' marked NOT_ELIGIBLE without disqualification rule.")
+                flags.append(f"Flagged '{result.scheme_name}': Missing disqualification reason.")
 
-            # Add to approved list if no critical violation
-            approved_results.append(result)
+            if scheme_valid:
+                approved_results.append(result)
+
+        pruned_count = len(match_results) - len(approved_results)
 
         return {
             "flags": flags,
             "is_valid": len(flags) == 0,
+            "approved_results": approved_results,
+            "pruned_count": pruned_count,
         }
