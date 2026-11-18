@@ -7,6 +7,7 @@ from typing import Any, Callable, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 from experience.actions.pdf_filler import generate_application_pdf
+from experience.dashboard.application_tracker import ApplicationTracker
 from experience.intake.hinglish import NaturalLanguageIntake
 from knowledge.monitor import MemoryStore
 from knowledge.rule_engine import evaluate_all, evaluate_scheme
@@ -207,6 +208,7 @@ class ToolRegistry:
         search_engine = SemanticSearchEngine()
         verifier = Verifier()
         memory_store = MemoryStore()
+        app_tracker = ApplicationTracker()
 
         # 1. extract_citizen_profile
         def run_extract_profile(text: str, existing_profile: Optional[dict[str, Any]] = None):
@@ -367,28 +369,36 @@ class ToolRegistry:
 
         # 12. create_application_task
         def run_create_task(scheme_id: str, citizen_id: str = "active_citizen", notes: str = ""):
-            task_id = f"task_{scheme_id}_{int(datetime.now().timestamp())}"
-            task_record = {
-                "task_id": task_id,
-                "scheme_id": scheme_id,
-                "citizen_id": citizen_id,
-                "status": "DRAFT",
-                "notes": notes,
-                "created_at": datetime.now(timezone.utc).isoformat()
-            }
-            # Save in memory store
-            memory_store.save_profile(f"task:{task_id}", CitizenProfile())
-            return task_record
+            all_schemes = {s.id: s for s in load_all_schemes()}
+            scheme = all_schemes.get(scheme_id)
+            scheme_name = scheme.name if scheme else scheme_id
+            portal = scheme.official_url if scheme else ""
+            req_docs = scheme.documents_required if scheme else []
+            task = app_tracker.create_task(
+                citizen_id=citizen_id,
+                scheme_id=scheme_id,
+                scheme_name=scheme_name,
+                documents_ready=[],
+                documents_missing=req_docs,
+                status="DRAFT",
+                official_portal_url=portal,
+                notes=notes,
+            )
+            return task
         self.register("create_application_task", "Creates a persistent application preparation task.", CreateApplicationTaskInput, run_create_task)
 
         # 13. update_application_status
         def run_update_status(task_id: str, status: str, notes: str = ""):
-            return {
-                "task_id": task_id,
-                "status": status,
-                "notes": notes,
-                "updated_at": datetime.now(timezone.utc).isoformat()
-            }
+            try:
+                updated = app_tracker.update_task_status(task_id, status=status, notes=notes)
+                return updated
+            except Exception:
+                return {
+                    "task_id": task_id,
+                    "status": status,
+                    "notes": notes,
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
         self.register("update_application_status", "Updates the status of an ongoing scheme application task.", UpdateApplicationStatusInput, run_update_status)
 
         # 14. save_agent_memory
