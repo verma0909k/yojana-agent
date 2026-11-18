@@ -401,6 +401,56 @@ def test_fix8_llm_client_explicit_failure_handling():
         assert success_res.error is None
 
 
+def test_fix9_planner_deduplicates_gap_questions():
+    """FIX 9: Planner tracks asked_fields, deduplicates gap questions, and terminates in <= 4 steps."""
+    from unittest.mock import patch
+    from brain.graph import build_graph
+    from shared.schemas import AgentState, CitizenProfile, EligibilityStatus, Fact, Gender
+
+    # 1. Profile with multiple gaps
+    profile_with_gaps = CitizenProfile(
+        age=Fact(value=30, confidence=1.0),
+        gender=Fact(value=Gender.MALE, confidence=1.0),
+    )
+    graph = build_graph()
+    initial_state = AgentState(
+        profile=profile_with_gaps,
+        user_query="all eligible schemes",
+    )
+
+    with patch("knowledge.verifier.Verifier.check_portals_concurrently", return_value={}):
+        final_state = graph.invoke(initial_state)
+
+    # Assert asked_fields never contains duplicates
+    asked = final_state.get("asked_fields", [])
+    assert len(asked) == len(set(asked))
+    assert len(asked) >= 1
+
+    # Assert previously-asked questions are never re-asked
+    questions = final_state.get("pending_questions", [])
+    assert len(questions) == len(set(questions))
+    assert len(questions) >= 1
+
+    # 2. Run graph when all missing fields have already been asked (no new questions remain)
+    almost_matches = [m for m in final_state.get("match_results", []) if m.status == EligibilityStatus.ALMOST]
+    all_missing = list({f for m in almost_matches for f in m.missing_fields})
+
+    state_no_gaps = AgentState(
+        profile=profile_with_gaps,
+        user_query="all eligible schemes",
+        asked_fields=all_missing,
+    )
+
+    with patch("knowledge.verifier.Verifier.check_portals_concurrently", return_value={}):
+        final_state_no_gaps = graph.invoke(state_no_gaps)
+
+    # Assert that the graph terminates in <= 4 steps when no new questions remain
+    assert final_state_no_gaps.get("step_count") <= 4
+    assert len(final_state_no_gaps.get("pending_questions", [])) == 0
+    assert final_state_no_gaps.get("is_complete") is True
+
+
+
 
 
 

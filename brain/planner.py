@@ -16,9 +16,13 @@ class Planner:
         if not state.match_results:
             return "matcher"
 
-        # 3. Check if high-value gap question can be asked (up to 2 rounds of asking)
+        # 3. Check if high-value gap question can be asked
         almost_matches = [m for m in state.match_results if m.status == EligibilityStatus.ALMOST]
-        if almost_matches and len(state.pending_questions) < 2:
+        all_missing = {field for m in almost_matches for field in m.missing_fields}
+        unasked_gaps = all_missing - set(state.asked_fields)
+
+        # If no scheme is almost eligible, or every missing field has already been asked, do NOT route to asker
+        if almost_matches and unasked_gaps and len(state.pending_questions) < 2:
             return "asker"
 
         # 4. If matching is complete and verification hasn't run

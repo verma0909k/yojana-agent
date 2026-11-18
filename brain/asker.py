@@ -42,21 +42,27 @@ QUESTION_TEMPLATES_HI = {
 class GapAsker:
     """Calculates info-gain over missing fields and produces high-value questions."""
 
-    def find_highest_impact_gap(self, match_results: list[MatchResult]) -> Optional[str]:
-        """Finds the field whose absence is blocking the highest number of ALMOST schemes."""
+    def find_highest_impact_gap(
+        self,
+        match_results: list[MatchResult],
+        exclude_fields: Optional[list[str]] = None,
+    ) -> Optional[str]:
+        """Finds the field whose absence is blocking the highest number of ALMOST schemes, skipping exclude_fields."""
         almost_matches = [m for m in match_results if m.status == EligibilityStatus.ALMOST]
         if not almost_matches:
             return None
 
+        exclude_set = set(exclude_fields or [])
         missing_counter = Counter()
         for m in almost_matches:
             for field in m.missing_fields:
-                missing_counter[field] += 1
+                if field not in exclude_set:
+                    missing_counter[field] += 1
 
         if not missing_counter:
             return None
 
-        # Return the field that appears most frequently
+        # Return the unasked field that appears most frequently
         top_field, count = missing_counter.most_common(1)[0]
         return top_field
 

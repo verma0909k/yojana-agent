@@ -171,20 +171,23 @@ if run_btn or "last_state" in st.session_state:
 
     # Interactive Gap-Asking Follow-up
     pending_qs = final_state.get("pending_questions", [])
-    if almost and pending_qs:
+    if pending_qs:
         st.markdown("---")
-        top_q = pending_qs[-1]
-        st.warning(f"❓ **Agent Follow-Up Question**: {top_q}")
-        with st.form("gap_answer_form"):
-            user_ans = st.text_input("Type your answer here / Apna jawab yahan likhein:")
-            submitted = st.form_submit_button("Submit Answer & Re-Match Schemes")
-            if submitted and user_ans:
-                intake = NaturalLanguageIntake()
-                st.session_state.profile = intake.parse_user_input(user_ans, existing_profile=st.session_state.profile)
-                memory.save_profile("active_session", st.session_state.profile)
-                if "last_state" in st.session_state:
-                    del st.session_state["last_state"]
-                st.rerun()
+        with st.container(border=True):
+            st.subheader("❓ I need a bit more information")
+            for q in pending_qs:
+                st.markdown(f"• **{q}**")
+
+            with st.form("gap_answer_form"):
+                user_ans = st.text_input("Type your answer here / Apna jawab yahan likhein:")
+                submitted = st.form_submit_button("Submit Answer & Re-Match Schemes")
+                if submitted and user_ans:
+                    intake = NaturalLanguageIntake()
+                    st.session_state.profile = intake.parse_user_input(user_ans, existing_profile=st.session_state.profile)
+                    memory.save_profile("active_session", st.session_state.profile)
+                    if "last_state" in st.session_state:
+                        del st.session_state["last_state"]
+                    st.rerun()
 
     # Eligible Schemes Display
     st.subheader(f"✅ Eligible Schemes ({len(eligible)})")

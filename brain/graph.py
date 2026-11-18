@@ -57,8 +57,8 @@ def matcher_node(state: AgentState) -> dict:
 
 
 def asker_node(state: AgentState) -> dict:
-    """Finds highest-impact information gap and generates question."""
-    gap_field = asker.find_highest_impact_gap(state.match_results)
+    """Finds highest-impact information gap and generates question, tracking asked fields."""
+    gap_field = asker.find_highest_impact_gap(state.match_results, exclude_fields=state.asked_fields)
     if gap_field:
         question = asker.generate_question(gap_field, language=state.language)
         trace = TraceStep(
@@ -67,6 +67,7 @@ def asker_node(state: AgentState) -> dict:
             details={"gap_field": gap_field, "question": question}
         )
         return {
+            "asked_fields": state.asked_fields + [gap_field],
             "pending_questions": state.pending_questions + [question],
             "trace_steps": state.trace_steps + [trace]
         }
