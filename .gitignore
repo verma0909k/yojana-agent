@@ -1,6 +1,14 @@
+# Environment & Virtualenv
 .venv/
+.env
+
+# Python & Cache
 __pycache__/
 .pytest_cache/
-.env
-output/
+*.pyc
+
+# Local Data & SQLite
 *.db
+
+# Action Outputs
+output/
