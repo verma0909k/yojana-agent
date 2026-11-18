@@ -1,11 +1,11 @@
 """Tests for brain layer: LangGraph loop, Planner, Gap-Asker, Critic."""
 
-from yojanaagent.brain.asker import GapAsker
-from yojanaagent.brain.critic import Critic
-from yojanaagent.brain.graph import build_graph
-from yojanaagent.experience.personas.demo_profiles import get_farmer_persona
-from yojanaagent.knowledge.schemes import load_all_schemes
-from yojanaagent.shared.schemas import AgentState, EligibilityStatus, MatchResult
+from brain.asker import GapAsker
+from brain.critic import Critic
+from brain.graph import build_graph
+from experience.personas.demo_profiles import get_farmer_persona
+from knowledge.schemes import load_all_schemes
+from shared.schemas import AgentState, EligibilityStatus, MatchResult
 
 
 def test_gap_asker():

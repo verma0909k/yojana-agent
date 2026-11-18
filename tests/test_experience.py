@@ -1,10 +1,10 @@
 """Tests for experience layer: Hinglish parsing, PDF generation, .ics generation, personas."""
 
-from yojanaagent.experience.actions.calendar_reminders import create_scheme_reminder_ics
-from yojanaagent.experience.actions.pdf_filler import generate_application_pdf
-from yojanaagent.experience.intake.hinglish import NaturalLanguageIntake
-from yojanaagent.experience.personas.demo_profiles import DEMO_PERSONAS, get_student_persona
-from yojanaagent.shared.schemas import MatchResult, EligibilityStatus, Occupation
+from experience.actions.calendar_reminders import create_scheme_reminder_ics
+from experience.actions.pdf_filler import generate_application_pdf
+from experience.intake.hinglish import NaturalLanguageIntake
+from experience.personas.demo_profiles import DEMO_PERSONAS, get_student_persona
+from shared.schemas import MatchResult, EligibilityStatus, Occupation
 
 
 def test_hinglish_parser():

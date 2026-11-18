@@ -1,8 +1,8 @@
 """Tests for knowledge layer: Rule Engine, Retriever, Verifier, Schemes."""
 
-from yojanaagent.knowledge.schemes import load_all_schemes
-from yojanaagent.knowledge.rule_engine import evaluate_scheme, evaluate_all
-from yojanaagent.shared.schemas import (
+from knowledge.schemes import load_all_schemes
+from knowledge.rule_engine import evaluate_scheme, evaluate_all
+from shared.schemas import (
     CitizenProfile,
     EligibilityStatus,
     Fact,

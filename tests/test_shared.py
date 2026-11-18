@@ -1,6 +1,6 @@
 """Tests for shared schemas and confidence tracking."""
 
-from yojanaagent.shared.schemas import CitizenProfile, Fact, Gender, Occupation, Source, Scheme, Criterion, CriterionOperator
+from shared.schemas import CitizenProfile, Fact, Gender, Occupation, Source, Scheme, Criterion, CriterionOperator
 
 
 def test_profile_creation_and_facts():

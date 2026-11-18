@@ -18,7 +18,7 @@
 ## 📂 Project Architecture
 
 ```
-yojanaagent/
+Yojana-Agent/
 ├── shared/                  # Core contracts and config
 │   ├── schemas.py           # CitizenProfile, MatchResult, AgentState, Scheme
 │   └── config.py            # env vars, paths, model names
@@ -62,10 +62,10 @@ pytest
 
 ### 3. Launch Streamlit UI
 ```powershell
-streamlit run yojanaagent\experience\app.py
+streamlit run experience\app.py
 ```
 
 ### 4. (Optional) Run FastAPI Backend
 ```powershell
-uvicorn yojanaagent.brain.api:app --reload
+uvicorn brain.api:app --reload
 ```
