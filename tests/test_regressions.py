@@ -222,5 +222,58 @@ def test_fix5_hinglish_intake_parser():
     assert p18.works_in_fisheries.value is True
 
 
+def test_fix6_truthful_verification_in_ui_and_pdf():
+    """FIX 6: Verifier structured results, tri-state PDF generation, and truthful badge text."""
+    from unittest.mock import MagicMock, patch
+    from experience.actions.pdf_filler import format_fact_value, generate_application_pdf
+    from knowledge.verifier import Verifier, get_portal_badge_text
+    from shared.schemas import CitizenProfile, EligibilityStatus, Fact, MatchResult, Source
+
+    # 1. Unknown BPL renders "Not provided", never "No"
+    p = CitizenProfile()
+    assert format_fact_value(p.is_bpl) == "Not provided"
+
+    # 2. Mocked 403 yields "blocked"
+    v = Verifier()
+    mock_resp = MagicMock()
+    mock_resp.status_code = 403
+    with patch("requests.head", return_value=mock_resp), patch("requests.get", return_value=mock_resp):
+        res = v.check_portal("https://gov.in/test-blocked-portal")
+        assert res["status"] == "blocked"
+        assert res["http_code"] == 403
+
+    # 3. Badge text never contains "verified" for a failed check
+    for status in ["blocked", "unreachable", "offline"]:
+        badge = get_portal_badge_text({"status": status, "checked_at": "12:00"})
+        assert "verified" not in badge.lower(), f"Failed check status {status} contains 'verified': {badge}"
+    assert "verified" not in get_portal_badge_text(None).lower()
+    reachable_badge = get_portal_badge_text({"status": "reachable", "checked_at": "14:30"})
+    assert "Reachable" in reachable_badge
+
+    # 4. Verified appears ONLY when source is DOCUMENT and confidence >= threshold
+    p_doc_high = CitizenProfile(is_bpl=Fact(value=True, confidence=0.9, source=Source.DOCUMENT))
+    p_doc_low = CitizenProfile(is_bpl=Fact(value=True, confidence=0.5, source=Source.DOCUMENT))
+    p_user = CitizenProfile(is_bpl=Fact(value=True, confidence=1.0, source=Source.USER_TEXT))
+
+    assert "Verified" in format_fact_value(p_doc_high.is_bpl)
+    assert "Verified" not in format_fact_value(p_doc_low.is_bpl)
+    assert "Verified" not in format_fact_value(p_user.is_bpl)
+
+    # 5. Concurrent unique PDF generation
+    m = MatchResult(
+        scheme_id="test-scheme",
+        scheme_name="Test Scheme",
+        status=EligibilityStatus.ELIGIBLE,
+    )
+    pdf1 = generate_application_pdf(p, m)
+    pdf2 = generate_application_pdf(p, m)
+    assert pdf1 != pdf2
+    assert pdf1.exists()
+    assert pdf2.exists()
+    pdf1.unlink(missing_ok=True)
+    pdf2.unlink(missing_ok=True)
+
+
+
 
 

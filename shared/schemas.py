@@ -181,6 +181,7 @@ class AgentState(BaseModel):
     candidate_schemes: list[str] = Field(default_factory=list)
     match_results: list[MatchResult] = Field(default_factory=list)
     pending_questions: list[str] = Field(default_factory=list)
+    portal_checks: dict[str, dict] = Field(default_factory=dict)
     verified_schemes: list[str] = Field(default_factory=list)
     critic_notes: list[str] = Field(default_factory=list)
     trace_steps: list[TraceStep] = Field(default_factory=list)

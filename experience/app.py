@@ -19,6 +19,7 @@ from experience.intake.ocr import DocumentOCR
 from experience.intake.voice import text_to_speech
 from experience.personas.demo_profiles import DEMO_PERSONAS
 from knowledge.monitor import MemoryStore
+from knowledge.verifier import get_portal_badge_text
 from shared.schemas import AgentState, CitizenProfile, EligibilityStatus, Source
 
 st.set_page_config(
@@ -48,7 +49,7 @@ with st.sidebar:
     )
 
     if selected_persona_name != "Custom Input":
-        st.session_state.profile = DEMO_PERSONAS[selected_persona_name]()
+        st.session_state.profile = DEMO_PERSONAS[selected_persona_name]().model_copy(deep=True)
         memory.save_profile("active_session", st.session_state.profile)
         st.success(f"Loaded & Saved: {selected_persona_name}")
 
@@ -73,8 +74,22 @@ with st.sidebar:
         for k, v in doc_facts.items():
             st.session_state.profile.set_fact(k, v, confidence=0.95, source=Source.DOCUMENT)
         memory.save_profile("active_session", st.session_state.profile)
-        st.success(f"Extracted from document: {', '.join(doc_facts.keys()) or 'Document verified'}")
+        st.success(f"Extracted from document: {', '.join(doc_facts.keys()) or 'Document processed'}")
 
+# Main input section (Parsed BEFORE rendering Current Citizen Facts)
+user_text = st.text_area(
+    "Describe your situation / Aapki samasya ya sthiti batayein:",
+    placeholder="e.g. Mai UP ke gaon me kheti karta hu, 2 acre jameen hai, aay 1.5 lakh hai aur BPL card hai. Konsi scheme milegi?",
+    height=80,
+)
+
+if user_text:
+    intake = NaturalLanguageIntake()
+    st.session_state.profile = intake.parse_user_input(user_text, existing_profile=st.session_state.profile)
+    memory.save_profile("active_session", st.session_state.profile)
+
+# Sidebar: Current Citizen Facts
+with st.sidebar:
     st.markdown("---")
     st.subheader("📋 Current Citizen Facts")
     known = st.session_state.profile.known_fields()
@@ -90,18 +105,6 @@ with st.sidebar:
         if "last_state" in st.session_state:
             del st.session_state["last_state"]
         st.rerun()
-
-# Main input section
-user_text = st.text_area(
-    "Describe your situation / Aapki samasya ya sthiti batayein:",
-    placeholder="e.g. Mai UP ke gaon me kheti karta hu, 2 acre jameen hai, aay 1.5 lakh hai aur BPL card hai. Konsi scheme milegi?",
-    height=80,
-)
-
-if user_text:
-    intake = NaturalLanguageIntake()
-    st.session_state.profile = intake.parse_user_input(user_text, existing_profile=st.session_state.profile)
-    memory.save_profile("active_session", st.session_state.profile)
 
 col1, col2 = st.columns([1, 4])
 with col1:
@@ -184,10 +187,11 @@ if run_btn or "last_state" in st.session_state:
                 st.rerun()
 
     # Eligible Schemes Display
-    st.subheader(f"✅ Verified Eligible Schemes ({len(eligible)})")
+    st.subheader(f"✅ Eligible Schemes ({len(eligible)})")
     if not eligible:
         st.warning("No fully eligible schemes matched. Check the 'Almost Eligible' section below.")
 
+    portal_checks = final_state.get("portal_checks", {})
     for m in eligible:
         with st.container(border=True):
             cols = st.columns([3, 1])
@@ -195,7 +199,8 @@ if run_btn or "last_state" in st.session_state:
                 st.markdown(f"### {m.scheme_name}")
                 st.markdown(f"**💰 Benefit**: {m.benefit_summary}")
                 st.markdown(f"**🏛️ Deciding Rule / Reason**: {', '.join(m.satisfied_reasons)}")
-                st.markdown(f"**🔗 Verified Official Portal**: [{m.official_url}]({m.official_url})")
+                badge_text = get_portal_badge_text(portal_checks.get(m.official_url))
+                st.markdown(f"**🔗 Official Portal** `[{badge_text}]`: [{m.official_url}]({m.official_url})")
 
                 if m.documents_required:
                     st.markdown("**📄 Mandatory Documents Checklist:**")

@@ -75,21 +75,25 @@ def asker_node(state: AgentState) -> dict:
 
 def verifier_node(state: AgentState) -> dict:
     """Verifies official portals and document consistency."""
-    verified = []
     eligible_results = [r for r in state.match_results if r.status == EligibilityStatus.ELIGIBLE]
+    urls = [r.official_url for r in eligible_results if r.official_url]
+    portal_checks = verifier.check_portals_concurrently(urls, max_urls=5)
 
-    for r in eligible_results[:3]:  # Verify top eligible portals
-        status = verifier.check_portal(r.official_url)
-        verified.append(f"{r.scheme_name}: {status['message']}")
+    verified = []
+    for r in eligible_results[:5]:
+        check = portal_checks.get(r.official_url, {})
+        status = check.get("status", "unverified")
+        verified.append(f"{r.scheme_name}: {status}")
 
     inconsistencies = verifier.verify_document_consistency(state.profile)
 
     trace = TraceStep(
         agent_name="Verifier",
-        action="Verified official portals and profile consistency",
-        details={"portals_checked": len(verified), "inconsistencies": inconsistencies}
+        action="Checked official portals and profile consistency",
+        details={"portals_checked": len(portal_checks), "inconsistencies": inconsistencies}
     )
     return {
+        "portal_checks": portal_checks,
         "verified_schemes": verified,
         "trace_steps": state.trace_steps + [trace]
     }
