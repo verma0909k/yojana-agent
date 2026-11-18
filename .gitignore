@@ -9,6 +9,7 @@ __pycache__/
 
 # Local Data & SQLite
 *.db
+knowledge/chroma_db/
 
 # Action Outputs
 output/
