@@ -102,3 +102,42 @@ def test_fix3_disqualification_messages_informative():
     assert "salaried" not in res_mudra.deciding_rule
 
 
+def test_fix4_json_single_source_of_truth(tmp_path):
+    """FIX 4: JSON files are the single source of truth; corruption fails loudly."""
+    import json
+    from shared.config import SCHEMES_DIR
+
+    # 1. Total loaded count equals number of .json files
+    json_count = len(list(SCHEMES_DIR.glob("*.json")))
+    loaded = load_all_schemes()
+    assert len(loaded) == json_count
+
+    # 2. Edit a temp copy of a scheme and confirm changes are loaded
+    sample_file = list(SCHEMES_DIR.glob("*.json"))[0]
+    data = json.loads(sample_file.read_text(encoding="utf-8"))
+    data["name"] = "Modified Test Scheme Name"
+
+    temp_dir = tmp_path / "schemes"
+    temp_dir.mkdir()
+    temp_file = temp_dir / sample_file.name
+    temp_file.write_text(json.dumps(data), encoding="utf-8")
+
+    temp_loaded = load_all_schemes(directory=temp_dir)
+    assert len(temp_loaded) == 1
+    assert temp_loaded[0].name == "Modified Test Scheme Name"
+
+    # 3. Broken JSON syntax raises clear ValueError naming the file
+    bad_json = temp_dir / "bad_syntax.json"
+    bad_json.write_text("{ broken json: true, ", encoding="utf-8")
+    with pytest.raises(ValueError, match="Failed to parse JSON in 'bad_syntax.json'"):
+        load_all_schemes(directory=temp_dir)
+    bad_json.unlink()
+
+    # 4. Schema validation failure raises clear ValueError naming the file
+    bad_schema = temp_dir / "bad_schema.json"
+    bad_schema.write_text(json.dumps({"id": "incomplete"}), encoding="utf-8")
+    with pytest.raises(ValueError, match="Scheme validation failed for 'bad_schema.json'"):
+        load_all_schemes(directory=temp_dir)
+
+
+
