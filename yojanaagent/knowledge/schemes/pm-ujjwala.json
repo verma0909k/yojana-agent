@@ -1,0 +1,45 @@
+{
+  "id": "pm-ujjwala",
+  "name": "Pradhan Mantri Ujjwala Yojana 2.0",
+  "name_hi": "प्रधानमंत्री उज्ज्वला योजना",
+  "ministry": "Ministry of Petroleum and Natural Gas",
+  "description": "Provides deposit-free LPG connection to adult women belonging to poor households.",
+  "benefits": "Free LPG connection + first refill and hotplate/stove free of cost",
+  "official_url": "https://www.pmuy.gov.in",
+  "category_tags": [
+    "women",
+    "energy",
+    "clean fuel",
+    "lpg",
+    "bpl"
+  ],
+  "documents_required": [
+    "Aadhaar Card of Applicant and Adult Family Members",
+    "Ration Card",
+    "Bank Account Details"
+  ],
+  "is_active": true,
+  "criteria": [
+    {
+      "field": "gender",
+      "operator": "eq",
+      "value": "female",
+      "description": "Applicant must be an adult woman",
+      "disqualification_reason": "Ujjwala connection is exclusively issued in the name of an adult woman"
+    },
+    {
+      "field": "age",
+      "operator": "gte",
+      "value": 18,
+      "description": "Applicant must be at least 18 years old",
+      "disqualification_reason": "Applicant is under 18 years"
+    },
+    {
+      "field": "is_bpl",
+      "operator": "is_true",
+      "value": true,
+      "description": "Must belong to BPL or underprivileged household",
+      "disqualification_reason": "Household does not fall under BPL/deprived criteria"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "id": "pmay-g",
+  "name": "Pradhan Mantri Awas Yojana - Gramin (PMAY-G)",
+  "name_hi": "प्रधानमंत्री आवास योजना - ग्रामीण",
+  "ministry": "Ministry of Rural Development",
+  "description": "Housing assistance to provide pucca house with basic amenities to all homeless and households living in kutcha/dilapidated houses in rural areas.",
+  "benefits": "Financial assistance of ₹1,20,000 (plains) to ₹1,30,000 (hilly states) + 90 days MGNREGA wages",
+  "official_url": "https://pmayg.nic.in",
+  "category_tags": [
+    "housing",
+    "rural",
+    "shelter",
+    "bpl"
+  ],
+  "documents_required": [
+    "Aadhaar Card",
+    "Job Card under MGNREGA",
+    "Bank Account linked to Aadhaar",
+    "BPL Certificate"
+  ],
+  "is_active": true,
+  "criteria": [
+    {
+      "field": "is_rural",
+      "operator": "is_true",
+      "value": true,
+      "description": "Applicant must reside in a rural area",
+      "disqualification_reason": "PMAY-G is specifically for rural residents"
+    },
+    {
+      "field": "is_bpl",
+      "operator": "is_true",
+      "value": true,
+      "description": "Must be categorized as BPL or homeless / kutcha house household",
+      "disqualification_reason": "Applicant is not classified as BPL / housing-deprived"
+    }
+  ]
+}

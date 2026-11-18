@@ -1,0 +1,43 @@
+{
+  "id": "atal-pension-yojana",
+  "name": "Atal Pension Yojana (APY)",
+  "name_hi": "अटल पेंशन योजना",
+  "ministry": "Ministry of Finance (PFRDA)",
+  "description": "Pension scheme targeted towards citizens in the unorganized sector for guaranteed monthly pension.",
+  "benefits": "Guaranteed pension of ₹1,000 to ₹5,000 per month after age 60",
+  "official_url": "https://www.npscra.nsdl.co.in",
+  "category_tags": [
+    "pension",
+    "senior citizen",
+    "social security",
+    "retirement"
+  ],
+  "documents_required": [
+    "Aadhaar Card",
+    "Active Savings Bank Account with auto-debit facility"
+  ],
+  "is_active": true,
+  "criteria": [
+    {
+      "field": "age",
+      "operator": "gte",
+      "value": 18,
+      "description": "Applicant must be at least 18 years old",
+      "disqualification_reason": "Minimum entry age for APY is 18"
+    },
+    {
+      "field": "age",
+      "operator": "lte",
+      "value": 40,
+      "description": "Applicant must be under 40 years old",
+      "disqualification_reason": "Maximum entry age for APY is 40"
+    },
+    {
+      "field": "has_bank_account",
+      "operator": "is_true",
+      "value": true,
+      "description": "Must possess a savings bank account",
+      "disqualification_reason": "Active bank account required for contribution auto-debit"
+    }
+  ]
+}

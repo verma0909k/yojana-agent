@@ -1,11 +1,29 @@
-﻿annotated-types==0.8.0
-colorama==0.4.6
-iniconfig==2.3.1
-packaging==26.3
-pluggy==1.7.0
-pydantic==2.14.3
-pydantic_core==2.50.4
-Pygments==2.21.0
-pytest==9.2.0
-typing-inspection==0.4.5
-typing_extensions==4.16.0
+# Core & Agent Orchestration
+langgraph>=0.2.0
+langchain-core>=0.3.0
+langchain-google-genai>=2.0.0
+python-dotenv>=1.0.0
+pydantic>=2.10.0
+
+# Trust & Verification
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+
+# Document & Voice (Intake)
+pillow>=10.0.0
+pytesseract>=0.3.10
+edge-tts>=6.1.0
+gTTS>=2.5.0
+
+# Action Layer
+reportlab>=4.0.0
+icalendar>=5.0.0
+
+# UI, API & Scheduling
+streamlit>=1.35.0
+fastapi>=0.111.0
+uvicorn>=0.30.0
+apscheduler>=3.10.0
+
+# Testing & Dev
+pytest>=9.0.0

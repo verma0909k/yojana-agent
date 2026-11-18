@@ -1,0 +1,37 @@
+{
+  "id": "old-age-pension-nsap",
+  "name": "Indira Gandhi National Old Age Pension Scheme (IGNOAPS)",
+  "name_hi": "इंदिरा गांधी राष्ट्रीय वृद्धावस्था पेंशन योजना",
+  "ministry": "Ministry of Rural Development",
+  "description": "Monthly pension for elderly senior citizens living below the poverty line.",
+  "benefits": "Monthly pension of ₹500 to ₹1,000 (enhanced with state contribution)",
+  "official_url": "https://nsap.nic.in",
+  "category_tags": [
+    "senior citizen",
+    "pension",
+    "bpl",
+    "elderly"
+  ],
+  "documents_required": [
+    "Age Proof / Aadhaar",
+    "BPL Ration Card",
+    "Bank Account Passbook"
+  ],
+  "is_active": true,
+  "criteria": [
+    {
+      "field": "age",
+      "operator": "gte",
+      "value": 60,
+      "description": "Applicant must be 60 years or older",
+      "disqualification_reason": "Applicant has not reached senior citizen age (60+)"
+    },
+    {
+      "field": "is_bpl",
+      "operator": "is_true",
+      "value": true,
+      "description": "Applicant household must be Below Poverty Line (BPL)",
+      "disqualification_reason": "Applicant household is not classified as BPL"
+    }
+  ]
+}

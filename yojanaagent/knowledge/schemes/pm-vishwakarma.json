@@ -1,0 +1,42 @@
+{
+  "id": "pm-vishwakarma",
+  "name": "PM Vishwakarma Scheme",
+  "name_hi": "पीएम विश्वकर्मा योजना",
+  "ministry": "Ministry of Micro, Small and Medium Enterprises",
+  "description": "Holistic support to traditional artisans and craftspeople working with hands and tools.",
+  "benefits": "Skill training (₹500/day stipend), ₹15,000 toolkit incentive, and collateral-free enterprise loan up to ₹3 Lakh at 5% interest",
+  "official_url": "https://pmvishwakarma.gov.in",
+  "category_tags": [
+    "artisan",
+    "craftsperson",
+    "self employed",
+    "toolkit",
+    "loan"
+  ],
+  "documents_required": [
+    "Aadhaar Card",
+    "Mobile Linked to Aadhaar",
+    "Bank Account",
+    "Artisan Trade Certificate/Declaration"
+  ],
+  "is_active": true,
+  "criteria": [
+    {
+      "field": "age",
+      "operator": "gte",
+      "value": 18,
+      "description": "Applicant must be at least 18 years old",
+      "disqualification_reason": "Minimum age is 18 years"
+    },
+    {
+      "field": "occupation",
+      "operator": "in",
+      "value": [
+        "self_employed",
+        "labourer"
+      ],
+      "description": "Must be engaged in traditional trade or craft work",
+      "disqualification_reason": "Applicant is not engaged in traditional artisanal or craft trade"
+    }
+  ]
+}

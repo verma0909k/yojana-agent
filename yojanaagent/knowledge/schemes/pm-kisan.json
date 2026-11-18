@@ -1,0 +1,44 @@
+{
+  "id": "pm-kisan",
+  "name": "PM Kisan Samman Nidhi",
+  "name_hi": "प्रधानमंत्री किसान सम्मान निधि",
+  "ministry": "Ministry of Agriculture and Farmers Welfare",
+  "description": "Financial support of Rs 6,000 per year in three equal installments directly to bank accounts of landholding farmer families.",
+  "benefits": "₹6,000/year direct cash transfer (3 installments of ₹2,000 each)",
+  "official_url": "https://pmkisan.gov.in",
+  "category_tags": [
+    "farmer",
+    "agriculture",
+    "financial assistance",
+    "cash transfer"
+  ],
+  "documents_required": [
+    "Aadhaar Card",
+    "Land Ownership Documents / Khasra-Khatauni",
+    "Bank Account Passbook"
+  ],
+  "is_active": true,
+  "criteria": [
+    {
+      "field": "occupation",
+      "operator": "eq",
+      "value": "farmer",
+      "description": "Must be an active farmer",
+      "disqualification_reason": "Applicant occupation is not farmer"
+    },
+    {
+      "field": "has_bank_account",
+      "operator": "is_true",
+      "value": true,
+      "description": "Must have an active bank account",
+      "disqualification_reason": "Applicant does not have a bank account for direct transfer"
+    },
+    {
+      "field": "has_aadhaar",
+      "operator": "is_true",
+      "value": true,
+      "description": "Must possess Aadhaar card",
+      "disqualification_reason": "Aadhaar is mandatory for PM-KISAN"
+    }
+  ]
+}

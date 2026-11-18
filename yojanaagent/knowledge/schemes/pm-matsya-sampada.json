@@ -1,0 +1,34 @@
+{
+  "id": "pm-matsya-sampada",
+  "name": "Pradhan Mantri Matsya Sampada Yojana (PMMSY)",
+  "name_hi": "प्रधानमंत्री मत्स्य संपदा योजना",
+  "ministry": "Ministry of Fisheries, Animal Husbandry and Dairying",
+  "description": "Focused development of fisheries sector with financial subsidies for aquaculture, boats, ponds, and cold chains.",
+  "benefits": "40% to 60% capital subsidy on fisheries infrastructure and equipment",
+  "official_url": "https://pmmsy.dof.gov.in",
+  "category_tags": [
+    "fisheries",
+    "farmer",
+    "aquaculture",
+    "self employed"
+  ],
+  "documents_required": [
+    "Aadhaar Card",
+    "Land / Water Body Lease or Ownership Proof",
+    "Bank Account Details"
+  ],
+  "is_active": true,
+  "criteria": [
+    {
+      "field": "occupation",
+      "operator": "in",
+      "value": [
+        "farmer",
+        "self_employed",
+        "labourer"
+      ],
+      "description": "Must be engaged in fisheries, farming, or allied aquaculture trade",
+      "disqualification_reason": "Applicant is not in fisheries/allied agriculture trade"
+    }
+  ]
+}

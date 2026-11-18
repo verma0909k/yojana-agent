@@ -1,0 +1,41 @@
+{
+  "id": "pm-egp-employment",
+  "name": "Prime Minister's Employment Generation Programme (PMEGP)",
+  "name_hi": "प्रधानमंत्री रोजगार सृजन कार्यक्रम",
+  "ministry": "Ministry of Micro, Small and Medium Enterprises",
+  "description": "Credit-linked subsidy programme to generate self-employment opportunities through micro-enterprise establishment in rural and urban areas.",
+  "benefits": "15% to 35% government capital subsidy on project cost up to ₹50 Lakh (manufacturing) or ₹20 Lakh (service)",
+  "official_url": "https://www.kviconline.gov.in",
+  "category_tags": [
+    "business loan",
+    "subsidy",
+    "entrepreneur",
+    "self employed"
+  ],
+  "documents_required": [
+    "Aadhaar Card",
+    "Educational Certificate (8th pass minimum for large projects)",
+    "Detailed Project Report (DPR)",
+    "Caste/Special Category Certificate if applicable"
+  ],
+  "is_active": true,
+  "criteria": [
+    {
+      "field": "age",
+      "operator": "gte",
+      "value": 18,
+      "description": "Applicant must be at least 18 years old",
+      "disqualification_reason": "Applicant is under 18 years"
+    },
+    {
+      "field": "occupation",
+      "operator": "in",
+      "value": [
+        "self_employed",
+        "unemployed"
+      ],
+      "description": "Applicant must be establishing a new micro-venture",
+      "disqualification_reason": "Applicant is not launching an eligible new enterprise"
+    }
+  ]
+}

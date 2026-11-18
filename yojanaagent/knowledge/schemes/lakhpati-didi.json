@@ -1,0 +1,38 @@
+{
+  "id": "lakhpati-didi",
+  "name": "Lakhpati Didi Initiative",
+  "name_hi": "लखपति दीदी योजना",
+  "ministry": "Ministry of Rural Development",
+  "description": "Empowering women Self-Help Group (SHG) members to earn sustainable annual income of ₹1 Lakh or more through micro-enterprises.",
+  "benefits": "Interest-free loan up to ₹5 Lakh, entrepreneurship & financial training, market linkage support",
+  "official_url": "https://aajeevika.gov.in",
+  "category_tags": [
+    "women",
+    "shg",
+    "rural",
+    "entrepreneurship"
+  ],
+  "documents_required": [
+    "Aadhaar Card",
+    "SHG Membership Record",
+    "Bank Passbook",
+    "Income Certificate"
+  ],
+  "is_active": true,
+  "criteria": [
+    {
+      "field": "gender",
+      "operator": "eq",
+      "value": "female",
+      "description": "Applicant must be female",
+      "disqualification_reason": "Lakhpati Didi initiative is strictly for women"
+    },
+    {
+      "field": "is_rural",
+      "operator": "is_true",
+      "value": true,
+      "description": "Must be resident in rural area / part of rural SHG",
+      "disqualification_reason": "Applicant is not in rural jurisdiction"
+    }
+  ]
+}

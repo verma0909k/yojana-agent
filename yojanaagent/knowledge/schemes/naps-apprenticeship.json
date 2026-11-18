@@ -1,0 +1,41 @@
+{
+  "id": "naps-apprenticeship",
+  "name": "National Apprenticeship Promotion Scheme (NAPS)",
+  "name_hi": "राष्ट्रीय शिक्षुता संवर्धन योजना",
+  "ministry": "Ministry of Skill Development and Entrepreneurship",
+  "description": "Promotes apprenticeship training by sharing stipend with employers and providing industrial skill training.",
+  "benefits": "Monthly stipend support (25% up to ₹1,500/month by Govt) + on-the-job industrial certification",
+  "official_url": "https://www.apprenticeshipindia.gov.in",
+  "category_tags": [
+    "skill development",
+    "student",
+    "youth",
+    "apprentice",
+    "jobs"
+  ],
+  "documents_required": [
+    "Aadhaar Card",
+    "Educational Marksheet (10th/12th/ITI/Diploma)",
+    "Bank Passbook"
+  ],
+  "is_active": true,
+  "criteria": [
+    {
+      "field": "age",
+      "operator": "gte",
+      "value": 14,
+      "description": "Applicant must be at least 14 years old",
+      "disqualification_reason": "Minimum apprentice age is 14 years"
+    },
+    {
+      "field": "occupation",
+      "operator": "in",
+      "value": [
+        "student",
+        "unemployed"
+      ],
+      "description": "Applicant must be a student or job-seeker looking for apprenticeships",
+      "disqualification_reason": "Applicant is already in salaried formal employment"
+    }
+  ]
+}

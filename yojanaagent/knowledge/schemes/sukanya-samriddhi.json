@@ -1,0 +1,38 @@
+{
+  "id": "sukanya-samriddhi",
+  "name": "Sukanya Samriddhi Yojana (SSY)",
+  "name_hi": "सुकन्या समृद्धि योजना",
+  "ministry": "Ministry of Finance",
+  "description": "Government-backed savings scheme targeted at parents of girl children to build a fund for future education and marriage.",
+  "benefits": "Highest sovereign-backed interest rate (8.2%+), full tax exemption under 80C, guaranteed corpus",
+  "official_url": "https://www.indiapost.gov.in",
+  "category_tags": [
+    "girl child",
+    "savings",
+    "investment",
+    "education",
+    "women"
+  ],
+  "documents_required": [
+    "Birth Certificate of Girl Child",
+    "Aadhaar Card of Parent/Guardian",
+    "Address Proof"
+  ],
+  "is_active": true,
+  "criteria": [
+    {
+      "field": "gender",
+      "operator": "eq",
+      "value": "female",
+      "description": "Beneficiary must be a female / girl child",
+      "disqualification_reason": "Sukanya Samriddhi is exclusively for female children"
+    },
+    {
+      "field": "age",
+      "operator": "lte",
+      "value": 10,
+      "description": "Account must be opened before girl child turns 10 years old",
+      "disqualification_reason": "Age exceeds 10 years maximum opening age"
+    }
+  ]
+}

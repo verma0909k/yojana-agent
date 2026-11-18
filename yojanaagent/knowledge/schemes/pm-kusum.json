@@ -1,0 +1,37 @@
+{
+  "id": "pm-kusum",
+  "name": "PM KUSUM Solar Pump Scheme",
+  "name_hi": "प्रधानमंत्री कुसुम योजना",
+  "ministry": "Ministry of New and Renewable Energy",
+  "description": "Financial subsidy to farmers for installing standalone solar agriculture pumps and solarizing grid-connected agriculture pumps.",
+  "benefits": "Up to 60% subsidy on solar agriculture pumps + 30% bank loan (farmer pays only 10%)",
+  "official_url": "https://pmkusum.mnre.gov.in",
+  "category_tags": [
+    "farmer",
+    "solar",
+    "irrigation",
+    "agriculture"
+  ],
+  "documents_required": [
+    "Aadhaar Card",
+    "Land Ownership Record (7/12 / Khasra)",
+    "Bank Account"
+  ],
+  "is_active": true,
+  "criteria": [
+    {
+      "field": "occupation",
+      "operator": "eq",
+      "value": "farmer",
+      "description": "Applicant must be an agricultural cultivator/farmer",
+      "disqualification_reason": "Applicant occupation is not farmer"
+    },
+    {
+      "field": "land_holding_acres",
+      "operator": "gte",
+      "value": 0.5,
+      "description": "Applicant must hold at least 0.5 acre of cultivable agricultural land",
+      "disqualification_reason": "Applicant holds less than 0.5 acre of land"
+    }
+  ]
+}

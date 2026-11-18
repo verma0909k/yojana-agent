@@ -1,0 +1,46 @@
+{
+  "id": "aicte-pragati-scholarship",
+  "name": "AICTE Pragati Scholarship for Girl Students",
+  "name_hi": "एआईसीटीई प्रगति छात्रवृत्ति (छात्राएं)",
+  "ministry": "Ministry of Education",
+  "description": "Scholarship to girl students admitted to technical degree or diploma courses in AICTE approved institutions.",
+  "benefits": "₹50,000 per annum for every year of technical study",
+  "official_url": "https://www.aicte-india.org",
+  "category_tags": [
+    "student",
+    "women",
+    "technical education",
+    "engineering",
+    "scholarship"
+  ],
+  "documents_required": [
+    "College Admission Letter",
+    "10th/12th Marksheet",
+    "Family Income Certificate",
+    "Aadhaar Card"
+  ],
+  "is_active": true,
+  "criteria": [
+    {
+      "field": "gender",
+      "operator": "eq",
+      "value": "female",
+      "description": "Applicant must be a female student",
+      "disqualification_reason": "Pragati scholarship is exclusively for female students"
+    },
+    {
+      "field": "occupation",
+      "operator": "eq",
+      "value": "student",
+      "description": "Applicant must be an enrolled student",
+      "disqualification_reason": "Applicant is not enrolled as a student"
+    },
+    {
+      "field": "annual_income",
+      "operator": "lte",
+      "value": 800000,
+      "description": "Family income must not exceed ₹8,00,000 per annum",
+      "disqualification_reason": "Family annual income exceeds ₹8 Lakh limit"
+    }
+  ]
+}

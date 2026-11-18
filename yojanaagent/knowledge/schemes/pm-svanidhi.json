@@ -1,0 +1,40 @@
+{
+  "id": "pm-svanidhi",
+  "name": "PM Street Vendor's AtmaNirbhar Nidhi (PM SVANidhi)",
+  "name_hi": "पीएम स्वनिधि योजना",
+  "ministry": "Ministry of Housing and Urban Affairs",
+  "description": "Collateral-free working capital loan to urban and peri-urban street vendors.",
+  "benefits": "Working capital loan starting at ₹10,000 with 7% interest subsidy, up to ₹50,000 on prompt repayment",
+  "official_url": "https://pmsvanidhi.mohua.gov.in",
+  "category_tags": [
+    "street vendor",
+    "loan",
+    "working capital",
+    "self employed"
+  ],
+  "documents_required": [
+    "Aadhaar Card",
+    "Vending Certificate / Urban Local Body Letter",
+    "Bank Account"
+  ],
+  "is_active": true,
+  "criteria": [
+    {
+      "field": "occupation",
+      "operator": "in",
+      "value": [
+        "self_employed",
+        "labourer"
+      ],
+      "description": "Applicant must be a self-employed vendor or informal worker",
+      "disqualification_reason": "Applicant is not in self-employed or informal street trade"
+    },
+    {
+      "field": "has_bank_account",
+      "operator": "is_true",
+      "value": true,
+      "description": "Must have an active bank account",
+      "disqualification_reason": "Bank account required for loan disbursement"
+    }
+  ]
+}

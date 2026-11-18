@@ -1,0 +1,42 @@
+{
+  "id": "stand-up-india",
+  "name": "Stand-Up India Scheme",
+  "name_hi": "स्टैंड-अप इंडिया योजना",
+  "ministry": "Ministry of Finance",
+  "description": "Facilitates bank loans between ₹10 lakh and ₹1 crore to at least one SC or ST borrower and at least one woman borrower per bank branch for setting up greenfield enterprises.",
+  "benefits": "Bank loan from ₹10 Lakh up to ₹1 Crore for greenfield business",
+  "official_url": "https://www.standupmitra.in",
+  "category_tags": [
+    "women entrepreneur",
+    "sc",
+    "st",
+    "business loan",
+    "startup"
+  ],
+  "documents_required": [
+    "Aadhaar Card",
+    "Caste Certificate (if SC/ST)",
+    "Project Report",
+    "Pan Card"
+  ],
+  "is_active": true,
+  "criteria": [
+    {
+      "field": "age",
+      "operator": "gte",
+      "value": 18,
+      "description": "Applicant must be 18+ years",
+      "disqualification_reason": "Applicant is under 18 years"
+    },
+    {
+      "field": "occupation",
+      "operator": "in",
+      "value": [
+        "self_employed",
+        "unemployed"
+      ],
+      "description": "Setting up a greenfield manufacturing, service, agri-allied, or trading enterprise",
+      "disqualification_reason": "Applicant is not establishing a new enterprise"
+    }
+  ]
+}

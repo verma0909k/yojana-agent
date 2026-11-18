@@ -1,0 +1,53 @@
+{
+  "id": "pm-sym",
+  "name": "PM Shram Yogi Maandhan (PM-SYM)",
+  "name_hi": "प्रधानमंत्री श्रम योगी मानधन योजना",
+  "ministry": "Ministry of Labour and Employment",
+  "description": "Old age pension scheme for unorganized workers like street vendors, rickshaw pullers, construction workers.",
+  "benefits": "Guaranteed minimum monthly pension of ₹3,000 after age 60",
+  "official_url": "https://maandhan.in",
+  "category_tags": [
+    "pension",
+    "unorganized labour",
+    "social security"
+  ],
+  "documents_required": [
+    "Aadhaar Card",
+    "Savings Bank Account / Jan Dhan Account with IFSC"
+  ],
+  "is_active": true,
+  "criteria": [
+    {
+      "field": "age",
+      "operator": "gte",
+      "value": 18,
+      "description": "Entry age must be at least 18 years",
+      "disqualification_reason": "Applicant is younger than 18 years"
+    },
+    {
+      "field": "age",
+      "operator": "lte",
+      "value": 40,
+      "description": "Entry age must not exceed 40 years",
+      "disqualification_reason": "Applicant is older than 40 years for entry into PM-SYM"
+    },
+    {
+      "field": "annual_income",
+      "operator": "lte",
+      "value": 180000,
+      "description": "Monthly income must not exceed ₹15,000 (Annual <= ₹1,80,000)",
+      "disqualification_reason": "Annual income exceeds ₹1,80,000 limit for unorganized workers"
+    },
+    {
+      "field": "occupation",
+      "operator": "in",
+      "value": [
+        "labourer",
+        "self_employed",
+        "unemployed"
+      ],
+      "description": "Must be an unorganized worker or labourer",
+      "disqualification_reason": "Scheme only applies to unorganized workers"
+    }
+  ]
+}

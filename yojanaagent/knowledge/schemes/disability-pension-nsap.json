@@ -1,0 +1,45 @@
+{
+  "id": "disability-pension-nsap",
+  "name": "Indira Gandhi National Disability Pension Scheme (IGNDPS)",
+  "name_hi": "इंदिरा गांधी राष्ट्रीय दिव्यांगता पेंशन योजना",
+  "ministry": "Ministry of Rural Development",
+  "description": "Social assistance pension for persons with severe and multiple disabilities below the poverty line.",
+  "benefits": "Monthly financial pension assistance + medical aids",
+  "official_url": "https://nsap.nic.in",
+  "category_tags": [
+    "disability",
+    "divyang",
+    "pension",
+    "bpl"
+  ],
+  "documents_required": [
+    "Disability Certificate (40%+ disability)",
+    "Aadhaar Card",
+    "BPL Certificate",
+    "Bank Passbook"
+  ],
+  "is_active": true,
+  "criteria": [
+    {
+      "field": "is_disabled",
+      "operator": "is_true",
+      "value": true,
+      "description": "Applicant must be a person with benchmark disability",
+      "disqualification_reason": "Applicant is not marked as having a disability"
+    },
+    {
+      "field": "age",
+      "operator": "gte",
+      "value": 18,
+      "description": "Applicant must be at least 18 years old",
+      "disqualification_reason": "Applicant is under 18 years"
+    },
+    {
+      "field": "is_bpl",
+      "operator": "is_true",
+      "value": true,
+      "description": "Applicant must belong to BPL family",
+      "disqualification_reason": "Applicant does not have BPL status"
+    }
+  ]
+}

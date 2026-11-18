@@ -1,0 +1,50 @@
+{
+  "id": "post-matric-scholarship",
+  "name": "Post-Matric Scholarship for SC/ST/OBC Students",
+  "name_hi": "उत्तर मैट्रिक छात्रवृत्ति (एससी/एसटी/ओबीसी)",
+  "ministry": "Ministry of Social Justice and Empowerment",
+  "description": "Financial assistance to SC/ST/OBC students studying at post-matriculation or post-secondary stage.",
+  "benefits": "Complete tuition fee waiver + maintenance allowance (up to ₹13,500/yr)",
+  "official_url": "https://scholarships.gov.in",
+  "category_tags": [
+    "student",
+    "education",
+    "scholarship",
+    "higher education"
+  ],
+  "documents_required": [
+    "Caste Certificate",
+    "Income Certificate",
+    "Previous Marksheet",
+    "Fee Receipt",
+    "Bank Passbook"
+  ],
+  "is_active": true,
+  "criteria": [
+    {
+      "field": "occupation",
+      "operator": "eq",
+      "value": "student",
+      "description": "Applicant must currently be a student",
+      "disqualification_reason": "Applicant is not enrolled as a student"
+    },
+    {
+      "field": "category",
+      "operator": "in",
+      "value": [
+        "sc",
+        "st",
+        "obc"
+      ],
+      "description": "Applicant must belong to SC, ST, or OBC category",
+      "disqualification_reason": "Applicant category is not SC, ST, or OBC"
+    },
+    {
+      "field": "annual_income",
+      "operator": "lte",
+      "value": 250000,
+      "description": "Family annual income must not exceed ₹2,50,000",
+      "disqualification_reason": "Family annual income exceeds ₹2.5 Lakh limit"
+    }
+  ]
+}

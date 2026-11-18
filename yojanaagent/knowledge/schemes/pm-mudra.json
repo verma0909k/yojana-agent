@@ -1,0 +1,41 @@
+{
+  "id": "pm-mudra",
+  "name": "Pradhan Mantri Mudra Yojana (PMMY)",
+  "name_hi": "प्रधानमंत्री मुद्रा योजना",
+  "ministry": "Ministry of Finance",
+  "description": "Loans up to 10 Lakhs to non-corporate, non-farm small/micro enterprises (Shishu, Kishore, Tarun).",
+  "benefits": "Collateral-free business loan from ₹50,000 up to ₹10 Lakhs",
+  "official_url": "https://www.mudra.org.in",
+  "category_tags": [
+    "entrepreneur",
+    "business loan",
+    "msme",
+    "self employed"
+  ],
+  "documents_required": [
+    "Identity Proof (Aadhaar/Voter ID)",
+    "Business Address Proof",
+    "Quotation / Project Report"
+  ],
+  "is_active": true,
+  "criteria": [
+    {
+      "field": "age",
+      "operator": "gte",
+      "value": 18,
+      "description": "Age must be at least 18 years",
+      "disqualification_reason": "Applicant must be an adult (18+)"
+    },
+    {
+      "field": "occupation",
+      "operator": "in",
+      "value": [
+        "self_employed",
+        "unemployed",
+        "farmer"
+      ],
+      "description": "Applicant must be setting up or running non-corporate small enterprise",
+      "disqualification_reason": "Salaried employees cannot apply for Mudra business loans"
+    }
+  ]
+}
