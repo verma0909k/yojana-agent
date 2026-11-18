@@ -10,15 +10,20 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 import streamlit as st
+from brain.application_agent import ApplicationAgent
 from brain.graph import build_graph
+from brain.llm_client import LLMClient
+from brain.state_manager import StateManager
 from experience.actions.calendar_reminders import create_scheme_reminder_ics
 from experience.actions.office_guidance import get_csc_office_guidance
 from experience.actions.pdf_filler import generate_application_pdf
+from experience.dashboard.application_tracker import ApplicationTracker
 from experience.intake.hinglish import NaturalLanguageIntake
 from experience.intake.ocr import DocumentOCR
 from experience.intake.voice import text_to_speech
 from experience.personas.demo_profiles import DEMO_PERSONAS
 from knowledge.monitor import MemoryStore
+from knowledge.schemes.data import load_all_schemes
 from knowledge.verifier import get_portal_badge_text
 from shared.schemas import AgentState, CitizenProfile, EligibilityStatus, Source
 
@@ -28,21 +33,37 @@ st.set_page_config(
     layout="wide",
 )
 
-# Initialize persistent SQLite memory store
+# Initialize persistent managers
 memory = MemoryStore()
+state_manager = StateManager()
+tracker = ApplicationTracker()
+app_agent = ApplicationAgent(tracker=tracker)
+llm_client = LLMClient()
 
 # Header
-st.title("🇮🇳 YojanaAgent: Autonomous Government Scheme-Matching Assistant")
-st.caption("Tell us your situation in Hindi, Hinglish, or English. We find, verify, and fill your schemes autonomously.")
+st.title("🇮🇳 YojanaAgent: Autonomous Government Scheme-Matching & Application Assistant")
+st.caption("LLM-powered reasoning brain with ChromaDB semantic search, live agent trace, and end-to-end application lifecycle tracking.")
 
 # Initialize session state for citizen profile
 if "profile" not in st.session_state:
     saved = memory.get_profile("active_session")
     st.session_state.profile = saved if saved else CitizenProfile()
 
-# Sidebar: One-Click Demo Personas & Inputs
+# Sidebar: One-Click Demo Personas & System Architecture Status
 with st.sidebar:
-    st.header("⚡ One-Click Hackathon Personas")
+    st.header("⚡ System Architecture Status")
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.metric("Vector DB", "ChromaDB")
+    with col_b:
+        st.metric("Schemes", f"{len(load_all_schemes())} Live")
+
+    llm_status = "Active" if llm_client.is_available() else "Heuristic Fallback"
+    st.caption(f"🧠 **LLM Brain Mode**: `{llm_status}`")
+    st.caption("🔒 **Evidentiary Grounding**: Strict source validation")
+
+    st.markdown("---")
+    st.header("⚡ One-Click Personas")
     selected_persona_name = st.selectbox(
         "Load Pre-Configured Citizen Profile:",
         ["Custom Input"] + list(DEMO_PERSONAS.keys()),
@@ -76,20 +97,6 @@ with st.sidebar:
         memory.save_profile("active_session", st.session_state.profile)
         st.success(f"Extracted from document: {', '.join(doc_facts.keys()) or 'Document processed'}")
 
-# Main input section (Parsed BEFORE rendering Current Citizen Facts)
-user_text = st.text_area(
-    "Describe your situation / Aapki samasya ya sthiti batayein:",
-    placeholder="e.g. Mai UP ke gaon me kheti karta hu, 2 acre jameen hai, aay 1.5 lakh hai aur BPL card hai. Konsi scheme milegi?",
-    height=80,
-)
-
-if user_text:
-    intake = NaturalLanguageIntake()
-    st.session_state.profile = intake.parse_user_input(user_text, existing_profile=st.session_state.profile)
-    memory.save_profile("active_session", st.session_state.profile)
-
-# Sidebar: Current Citizen Facts
-with st.sidebar:
     st.markdown("---")
     st.subheader("📋 Current Citizen Facts")
     known = st.session_state.profile.known_fields()
@@ -106,147 +113,228 @@ with st.sidebar:
             del st.session_state["last_state"]
         st.rerun()
 
-col1, col2 = st.columns([1, 4])
-with col1:
-    run_btn = st.button("🚀 Match My Schemes", type="primary", use_container_width=True)
+# Top Tabs: Discovery & Matching vs Application Dashboard
+tab_match, tab_tracker = st.tabs(["🎯 Scheme Discovery & Agentic Matching", "📋 Application Lifecycle Dashboard"])
 
-if run_btn or "last_state" in st.session_state:
-    if run_btn:
-        with st.spinner("Agentic pipeline executing (Planner -> Matcher -> Verifier -> Critic)..."):
-            graph = build_graph()
-            initial_state = AgentState(
-                profile=st.session_state.profile,
-                user_query=user_text or "all eligible schemes",
-                language=lang_code
+with tab_match:
+    # Main input section
+    user_text = st.text_area(
+        "Describe your situation / Aapki samasya ya sthiti batayein:",
+        placeholder="e.g. Mai UP ke gaon me kheti karta hu, 2 acre jameen hai, aay 1.5 lakh hai aur BPL card hai. Konsi scheme milegi?",
+        height=80,
+    )
+
+    if user_text:
+        intake = NaturalLanguageIntake()
+        st.session_state.profile = intake.parse_user_input(user_text, existing_profile=st.session_state.profile)
+        memory.save_profile("active_session", st.session_state.profile)
+
+    run_btn = st.button("🚀 Match My Schemes with Agentic Brain", type="primary", use_container_width=True)
+
+    if run_btn or "last_state" in st.session_state:
+        if run_btn:
+            with st.spinner("Agentic planning & execution loop running (ChromaDB Search -> Rule Grounding -> Portal Verify -> Safety Critic)..."):
+                graph = build_graph()
+                initial_state = AgentState(
+                    session_id="ui_active_session",
+                    profile=st.session_state.profile,
+                    user_query=user_text or "all eligible schemes",
+                    language=lang_code
+                )
+                final_state = graph.invoke(initial_state)
+                st.session_state.last_state = final_state
+                memory.save_matches("active_session", final_state.get("match_results", []))
+                state_manager.save_session("ui_active_session", AgentState.model_validate(final_state))
+        else:
+            final_state = st.session_state.last_state
+
+        # 1. Live Agent Trace Panel
+        with st.expander("🔍 Live Agent Trace Panel (Internal LLM Brain & Tool Execution Audit)", expanded=True):
+            st.markdown("**Chronological Agent Reasoning, Tool Execution & Observation Traces:**")
+            trace_steps = final_state.get("trace_steps", [])
+            for i, t in enumerate(trace_steps, 1):
+                agent_emoji = {
+                    "Planner": "🧠",
+                    "Matcher": "⚖️",
+                    "ToolExecutor": "⚙️",
+                    "Gap-Asker": "❓",
+                    "Verifier": "✅",
+                    "Critic": "🛡️",
+                    "Orchestrator": "🎯",
+                    "StateManager": "💾",
+                    "GraphInterrupt": "⏸️",
+                }.get(t.agent_name, "🤖")
+
+                st.markdown(f"**Step {i}: {agent_emoji} {t.agent_name}** — *{t.action}*")
+                if t.details:
+                    st.json(t.details)
+
+        # 2. Results Layout
+        match_results = final_state.get("match_results", [])
+        eligible = [m for m in match_results if m.status == EligibilityStatus.ELIGIBLE]
+        almost = [m for m in match_results if m.status == EligibilityStatus.ALMOST]
+
+        # Voice Briefing Player
+        st.subheader("🔊 Multimodal Audio Briefing")
+        if eligible:
+            top_scheme = eligible[0].scheme_name
+            briefing_text = (
+                f"बधाई हो! आप {top_scheme} समेत कुल {len(eligible)} योजनाओं के लिए पात्र हैं।"
+                if lang_code == "hi"
+                else f"Congratulations! You qualify for {len(eligible)} government schemes including {top_scheme}."
             )
-            final_state = graph.invoke(initial_state)
-            st.session_state.last_state = final_state
-            # Persist match results in SQLite
-            memory.save_matches("active_session", final_state.get("match_results", []))
-    else:
-        final_state = st.session_state.last_state
+        else:
+            briefing_text = (
+                "वर्तमान में कोई पूर्ण पात्र योजना नहीं मिली है, कृपया अतिरिक्त जानकारी दें।"
+                if lang_code == "hi"
+                else "No fully eligible schemes matched yet. Please provide additional information."
+            )
 
-    # 1. Live Agent Trace Panel (Crucial for Hackathon evaluation)
-    with st.expander("🔍 Live Agent Trace Panel (Internal Multi-Agent Audit Log)", expanded=True):
-        st.markdown("**Chronological Sub-Agent Reasoning & Execution Steps:**")
-        trace_steps = final_state.get("trace_steps", [])
-        for i, t in enumerate(trace_steps, 1):
-            agent_emoji = {
-                "Planner": "🧠",
-                "Matcher": "⚖️",
-                "Gap-Asker": "❓",
-                "Verifier": "✅",
-                "Critic": "🛡️",
-                "Orchestrator": "🎯",
-            }.get(t.agent_name, "🤖")
+        audio_path = text_to_speech(briefing_text, language=lang_code)
+        if audio_path.exists():
+            st.audio(str(audio_path), format="audio/mp3")
 
-            st.markdown(f"**Step {i}: {agent_emoji} {t.agent_name}** — *{t.action}*")
-            if t.details:
-                st.json(t.details)
-
-    # 2. Results Layout
-    match_results = final_state.get("match_results", [])
-    eligible = [m for m in match_results if m.status == EligibilityStatus.ELIGIBLE]
-    almost = [m for m in match_results if m.status == EligibilityStatus.ALMOST]
-
-    # Voice Briefing Player
-    st.subheader("🔊 Multimodal Audio Briefing")
-    if eligible:
-        top_scheme = eligible[0].scheme_name
-        briefing_text = (
-            f"बधाई हो! आप {top_scheme} समेत कुल {len(eligible)} योजनाओं के लिए पात्र हैं।"
-            if lang_code == "hi"
-            else f"Congratulations! You qualify for {len(eligible)} government schemes including {top_scheme}."
-        )
-    else:
-        briefing_text = (
-            "वर्तमान में कोई पूर्ण पात्र योजना नहीं मिली है, कृपया अतिरिक्त जानकारी दें।"
-            if lang_code == "hi"
-            else "No fully eligible schemes matched yet. Please provide additional information."
-        )
-
-    audio_path = text_to_speech(briefing_text, language=lang_code)
-    if audio_path.exists():
-        st.audio(str(audio_path), format="audio/mp3")
-
-    # Interactive Gap-Asking Follow-up
-    pending_qs = final_state.get("pending_questions", [])
-    if pending_qs:
-        st.markdown("---")
-        with st.container(border=True):
-            st.subheader("❓ I need a bit more information")
-            for q in pending_qs:
-                st.markdown(f"• **{q}**")
-
-            with st.form("gap_answer_form"):
-                user_ans = st.text_input("Type your answer here / Apna jawab yahan likhein:")
-                submitted = st.form_submit_button("Submit Answer & Re-Match Schemes")
-                if submitted and user_ans:
-                    intake = NaturalLanguageIntake()
-                    st.session_state.profile = intake.parse_user_input(user_ans, existing_profile=st.session_state.profile)
-                    memory.save_profile("active_session", st.session_state.profile)
-                    if "last_state" in st.session_state:
-                        del st.session_state["last_state"]
-                    st.rerun()
-
-    # Eligible Schemes Display
-    st.subheader(f"✅ Eligible Schemes ({len(eligible)})")
-    if not eligible:
-        st.warning("No fully eligible schemes matched. Check the 'Almost Eligible' section below.")
-
-    portal_checks = final_state.get("portal_checks", {})
-    for m in eligible:
-        with st.container(border=True):
-            cols = st.columns([3, 1])
-            with cols[0]:
-                st.markdown(f"### {m.scheme_name}")
-                st.markdown(f"**💰 Benefit**: {m.benefit_summary}")
-                st.markdown(f"**🏛️ Deciding Rule / Reason**: {', '.join(m.satisfied_reasons)}")
-                badge_text = get_portal_badge_text(portal_checks.get(m.official_url))
-                st.markdown(f"**🔗 Official Portal** `[{badge_text}]`: [{m.official_url}]({m.official_url})")
-
-                if m.documents_required:
-                    st.markdown("**📄 Mandatory Documents Checklist:**")
-                    for doc in m.documents_required:
-                        st.checkbox(doc, value=True, key=f"{m.scheme_id}_{doc}")
-
-            with cols[1]:
-                st.markdown("**⚡ One-Click Actions**")
-                # PDF Generation
-                pdf_path = generate_application_pdf(st.session_state.profile, m)
-                with open(pdf_path, "rb") as f:
-                    st.download_button(
-                        label="📄 Download Pre-filled PDF",
-                        data=f.read(),
-                        file_name=f"Application_{m.scheme_id}.pdf",
-                        mime="application/pdf",
-                        key=f"pdf_{m.scheme_id}",
-                        use_container_width=True
-                    )
-
-                # Calendar Reminder (.ics)
-                ics_path = create_scheme_reminder_ics(m)
-                with open(ics_path, "rb") as f:
-                    st.download_button(
-                        label="📅 Add .ics Reminder",
-                        data=f.read(),
-                        file_name=f"Reminder_{m.scheme_id}.ics",
-                        mime="text/calendar",
-                        key=f"ics_{m.scheme_id}",
-                        use_container_width=True
-                    )
-
-    # Physical Office Guidance
-    guidance = get_csc_office_guidance(st.session_state.profile)
-    with st.expander("🏢 Nearest Common Service Center (CSC) & Submission Office"):
-        st.info(guidance["instructions"])
-        st.markdown(f"[Find your nearest CSC center online]({guidance['csc_locator_url']})")
-
-    # Almost Eligible Schemes
-    if almost:
-        st.subheader(f"⚠️ Almost Eligible ({len(almost)}) — Missing Key Info")
-        for m in almost[:4]:
+        # Interactive Gap-Asking Follow-up
+        pending_qs = final_state.get("pending_questions", [])
+        if pending_qs or final_state.get("is_paused"):
+            st.markdown("---")
             with st.container(border=True):
-                st.markdown(f"#### {m.scheme_name}")
-                st.write(f"**Missing Information Needed**: `{', '.join(m.missing_fields)}`")
-                st.markdown(f"**Official Link**: [{m.official_url}]({m.official_url})")
+                st.subheader("❓ Clarification Needed to Unlock Schemes")
+                for q in pending_qs:
+                    st.markdown(f"• **{q}**")
+
+                with st.form("gap_answer_form"):
+                    user_ans = st.text_input("Type your answer here / Apna jawab yahan likhein:")
+                    submitted = st.form_submit_button("Submit Answer & Re-Evaluate Schemes")
+                    if submitted and user_ans:
+                        # Resume state through StateManager
+                        resumed_state = state_manager.resume_session("ui_active_session", citizen_reply=user_ans)
+                        st.session_state.profile = resumed_state.profile
+                        memory.save_profile("active_session", resumed_state.profile)
+
+                        graph = build_graph()
+                        updated_result = graph.invoke(resumed_state)
+                        st.session_state.last_state = updated_result
+                        state_manager.save_session("ui_active_session", AgentState.model_validate(updated_result))
+                        st.rerun()
+
+        # Eligible Schemes Display
+        st.subheader(f"✅ Eligible Schemes ({len(eligible)})")
+        if not eligible:
+            st.warning("No fully eligible schemes matched. Check the 'Almost Eligible' section below.")
+
+        portal_checks = final_state.get("portal_checks", {})
+        for m in eligible:
+            with st.container(border=True):
+                cols = st.columns([3, 1])
+                with cols[0]:
+                    st.markdown(f"### {m.scheme_name}")
+                    st.markdown(f"**💰 Benefit**: {m.benefit_summary}")
+                    st.markdown(f"**🏛️ Deciding Rule / Reason**: {', '.join(m.satisfied_reasons)}")
+                    badge_text = get_portal_badge_text(portal_checks.get(m.official_url))
+                    st.markdown(f"**🔗 Official Portal** `[{badge_text}]`: [{m.official_url}]({m.official_url})")
+
+                    if m.documents_required:
+                        st.markdown("**📄 Mandatory Documents Checklist:**")
+                        for doc in m.documents_required:
+                            st.checkbox(doc, value=True, key=f"{m.scheme_id}_{doc}")
+
+                with cols[1]:
+                    st.markdown("**⚡ One-Click Actions**")
+                    # PDF Generation
+                    pdf_path = generate_application_pdf(st.session_state.profile, m)
+                    with open(pdf_path, "rb") as f:
+                        st.download_button(
+                            label="📄 Download Pre-filled PDF",
+                            data=f.read(),
+                            file_name=f"Application_{m.scheme_id}.pdf",
+                            mime="application/pdf",
+                            key=f"pdf_{m.scheme_id}",
+                            use_container_width=True
+                        )
+
+                    # Start Application Tracking
+                    if st.button("📋 Prepare & Track Application", key=f"track_{m.scheme_id}", use_container_width=True):
+                        pkg = app_agent.prepare_application_package(
+                            scheme_id=m.scheme_id,
+                            profile=st.session_state.profile,
+                            citizen_id="ui_active_citizen",
+                            generate_pdf=True,
+                        )
+                        st.success(f"Application task created! Task ID: `{pkg['task_id']}`. View in Application Dashboard tab.")
+
+                    # Calendar Reminder (.ics)
+                    ics_path = create_scheme_reminder_ics(m)
+                    with open(ics_path, "rb") as f:
+                        st.download_button(
+                            label="📅 Add .ics Reminder",
+                            data=f.read(),
+                            file_name=f"Reminder_{m.scheme_id}.ics",
+                            mime="text/calendar",
+                            key=f"ics_{m.scheme_id}",
+                            use_container_width=True
+                        )
+
+        # Physical Office Guidance
+        guidance = get_csc_office_guidance(st.session_state.profile)
+        with st.expander("🏢 Nearest Common Service Center (CSC) & Submission Office"):
+            st.info(guidance["instructions"])
+            st.markdown(f"[Find your nearest CSC center online]({guidance['csc_locator_url']})")
+
+        # Almost Eligible Schemes
+        if almost:
+            st.subheader(f"⚠️ Almost Eligible ({len(almost)}) — Missing Key Info")
+            for m in almost[:4]:
+                with st.container(border=True):
+                    st.markdown(f"#### {m.scheme_name}")
+                    st.write(f"**Missing Information Needed**: `{', '.join(m.missing_fields)}`")
+                    st.markdown(f"**Official Link**: [{m.official_url}]({m.official_url})")
+
+with tab_tracker:
+    st.header("📋 Application Lifecycle & Submission Tracker")
+    st.caption("Track the live progress of your scheme applications from DRAFT to SUBMITTED.")
+
+    tasks = tracker.list_tasks(citizen_id="ui_active_citizen")
+    if not tasks:
+        # Also check all tasks
+        tasks = tracker.list_tasks()
+
+    if not tasks:
+        st.info("No applications prepared yet. Click 'Prepare & Track Application' on any eligible scheme in the Matching tab.")
+    else:
+        for t in tasks:
+            with st.container(border=True):
+                col_t1, col_t2 = st.columns([3, 1])
+                with col_t1:
+                    status_emoji = {
+                        "DRAFT": "📝",
+                        "IN_PROGRESS": "⏳",
+                        "READY_TO_SUBMIT": "🟢",
+                        "SUBMITTED": "📬",
+                        "APPROVED": "🎉",
+                    }.get(t["status"], "📌")
+                    st.markdown(f"### {status_emoji} {t['scheme_name']} (`{t['task_id']}`)")
+                    st.markdown(f"**Status**: `{t['status']}` | **Mode**: `{t['submission_mode']}` | **Updated**: `{t['updated_at'][:19]}`")
+                    st.markdown(f"**Official Submission Portal**: [{t['official_portal_url']}]({t['official_portal_url']})")
+
+                    if t.get("documents_ready"):
+                        st.markdown(f"**Ready Documents**: {', '.join(t['documents_ready'])}")
+                    if t.get("documents_missing"):
+                        st.warning(f"**Missing Documents Needed**: {', '.join(t['documents_missing'])}")
+
+                    if t.get("notes"):
+                        st.caption(f"**Notes**: {t['notes']}")
+
+                with col_t2:
+                    st.markdown("**Update Status**")
+                    new_st = st.selectbox(
+                        "Change Status:",
+                        ["DRAFT", "READY_TO_SUBMIT", "SUBMITTED"],
+                        index=["DRAFT", "READY_TO_SUBMIT", "SUBMITTED"].index(t["status"]) if t["status"] in ["DRAFT", "READY_TO_SUBMIT", "SUBMITTED"] else 0,
+                        key=f"status_sel_{t['task_id']}"
+                    )
+                    notes_update = st.text_input("Ref / Ack No:", key=f"notes_{t['task_id']}", placeholder="e.g. ACK-2026-102")
+                    if st.button("Save Update", key=f"btn_save_{t['task_id']}", use_container_width=True):
+                        tracker.update_task_status(t["task_id"], status=new_st, notes=notes_update)
+                        st.success("Updated!")
+                        st.rerun()
