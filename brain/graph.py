@@ -4,10 +4,11 @@ from langgraph.graph import StateGraph, END
 from brain.asker import GapAsker
 from brain.critic import Critic
 from brain.planner import Planner
+from brain.tool_registry import ToolRegistry
 from brain.trace import TraceLogger
 from knowledge.matcher import SchemeMatcher
 from knowledge.verifier import Verifier
-from shared.schemas import AgentActionType, AgentState, EligibilityStatus, TraceStep
+from shared.schemas import AgentActionType, AgentState, EligibilityStatus, MatchResult, TraceStep
 
 # Initialize modules
 planner = Planner()
@@ -15,22 +16,25 @@ matcher = SchemeMatcher()
 asker = GapAsker()
 verifier = Verifier()
 critic = Critic()
+tool_registry = ToolRegistry()
 
 
 def planner_node(state: AgentState) -> dict:
     """Decides which node executes next using structured LLM planning."""
     step = state.step_count + 1
-    decision = planner.plan(state)
 
-    mapping = {
-        AgentActionType.SEARCH_SCHEMES: "matcher",
-        AgentActionType.EXTRACT_CITIZEN_PROFILE: "matcher",
-        AgentActionType.ASK_CITIZEN_QUESTION: "asker",
-        AgentActionType.VERIFY_OFFICIAL_SOURCE: "verifier",
-        AgentActionType.COMPARE_ELIGIBILITY: "critic",
-        AgentActionType.FINALIZE: "finalize",
-    }
-    next_node = mapping.get(decision.proposed_action, "finalize")
+    # Check if a plan decision was pre-supplied and pending execution
+    if state.step_count == 0 and state.plan_decision and state.plan_decision.selected_tool and state.next_node == "tool_executor":
+        decision = state.plan_decision
+    else:
+        decision = planner.plan(state)
+
+    if decision.proposed_action == AgentActionType.FINALIZE or decision.is_terminal:
+        next_node = "finalize"
+    elif decision.selected_tool in tool_registry.tools:
+        next_node = "tool_executor"
+    else:
+        next_node = "finalize"
 
     trace = TraceStep(
         agent_name="Planner",
@@ -144,6 +148,54 @@ def critic_node(state: AgentState) -> dict:
     }
 
 
+def tool_executor_node(state: AgentState) -> dict:
+    """Executes registered Python tools dynamically and provides observations back to state."""
+    decision = state.plan_decision
+    if not decision or not decision.selected_tool:
+        return {}
+
+    tool_name = decision.selected_tool
+    tool_args = decision.tool_args or {}
+
+    exec_result = tool_registry.execute_tool(tool_name, tool_args)
+    trace = TraceStep(
+        agent_name="ToolExecutor",
+        action=f"Executed tool: {tool_name}",
+        details={
+            "tool": tool_name,
+            "success": exec_result.success,
+            "error": exec_result.error,
+            "data_summary": str(exec_result.data)[:120] if exec_result.data else None
+        }
+    )
+
+    updates: dict = {
+        "trace_steps": state.trace_steps + [trace],
+        "execution_context": {
+            **state.execution_context,
+            "last_tool_result": exec_result.model_dump()
+        }
+    }
+
+    if exec_result.success and exec_result.data:
+        if tool_name == "search_schemes" and isinstance(exec_result.data, list):
+            updates["candidate_schemes"] = [s["scheme_id"] for s in exec_result.data if isinstance(s, dict) and "scheme_id" in s]
+        elif tool_name == "compare_eligibility" and isinstance(exec_result.data, list):
+            updates["match_results"] = [MatchResult.model_validate(m) for m in exec_result.data if isinstance(m, dict)]
+        elif tool_name == "ask_citizen_question" and isinstance(exec_result.data, dict):
+            updates["pending_questions"] = state.pending_questions + [exec_result.data.get("question", "")]
+            updates["asked_fields"] = state.asked_fields + [exec_result.data.get("field_name", "")]
+        elif tool_name == "verify_official_source" and isinstance(exec_result.data, dict):
+            checks = dict(state.portal_checks)
+            url_checked = exec_result.data.get("url", "")
+            if url_checked:
+                checks[url_checked] = exec_result.data
+            updates["portal_checks"] = checks
+            updates["verified_schemes"] = list(set(state.verified_schemes + [url_checked]))
+
+    return updates
+
+
 def finalize_node(state: AgentState) -> dict:
     """Formats final response in user language with reasons and official links."""
     eligible = [m for m in state.match_results if m.status == EligibilityStatus.ELIGIBLE]
@@ -183,7 +235,7 @@ def finalize_node(state: AgentState) -> dict:
 def route_decision(state: AgentState) -> str:
     """Routes based on planner's decided next node."""
     next_node = state.next_node
-    if next_node in ["matcher", "asker", "verifier", "critic", "finalize"]:
+    if next_node in ["matcher", "asker", "verifier", "critic", "tool_executor", "finalize"]:
         return next_node
     return "finalize"
 
@@ -197,6 +249,7 @@ def build_graph():
     workflow.add_node("asker", asker_node)
     workflow.add_node("verifier", verifier_node)
     workflow.add_node("critic", critic_node)
+    workflow.add_node("tool_executor", tool_executor_node)
     workflow.add_node("finalize", finalize_node)
 
     workflow.set_entry_point("planner")
@@ -209,6 +262,7 @@ def build_graph():
             "asker": "asker",
             "verifier": "verifier",
             "critic": "critic",
+            "tool_executor": "tool_executor",
             "finalize": "finalize",
         }
     )
@@ -217,6 +271,7 @@ def build_graph():
     workflow.add_edge("asker", "planner")
     workflow.add_edge("verifier", "planner")
     workflow.add_edge("critic", "planner")
+    workflow.add_edge("tool_executor", "planner")
     workflow.add_edge("finalize", END)
 
     return workflow.compile()

@@ -104,26 +104,40 @@ class Planner:
         goal = state.user_query or "Discover and evaluate eligible government schemes"
         known = state.profile.known_fields()
         
-        # Step A: Matching if not yet performed
-        if not state.match_results:
+        # Step A: Semantic search if no candidate schemes and no match results yet
+        if not state.candidate_schemes and not state.match_results:
             return PlanDecision(
                 citizen_goal=goal,
-                current_understanding="Citizen facts recorded. Need to query knowledge base for candidates.",
+                current_understanding="Citizen facts recorded. Need to query knowledge base for candidate schemes.",
                 information_gaps=[f for f in state.profile.unknown_fields()[:3]],
                 proposed_action=AgentActionType.SEARCH_SCHEMES,
                 selected_tool="search_schemes",
-                tool_args={"query": state.user_query, "profile": known},
+                tool_args={"query": state.user_query or "government schemes", "top_k": 5},
                 expected_outcome="Candidate government schemes evaluated for eligibility.",
-                reason="[Fallback Mode: Heuristic Rule] Matching must be evaluated first.",
+                reason="[Fallback Mode: Heuristic Rule] Search relevant schemes from vector store.",
                 is_terminal=False,
             )
 
-        # Step B: Check for unasked gaps on ALMOST schemes
+        # Step B: Compare eligibility if candidates found but match results not yet computed
+        if state.candidate_schemes and not state.match_results:
+            return PlanDecision(
+                citizen_goal=goal,
+                current_understanding=f"Retrieved {len(state.candidate_schemes)} candidate schemes. Evaluating eligibility against citizen facts.",
+                information_gaps=[],
+                proposed_action=AgentActionType.COMPARE_ELIGIBILITY,
+                selected_tool="compare_eligibility",
+                tool_args={"scheme_ids": state.candidate_schemes, "profile_data": known},
+                expected_outcome="Eligibility comparison results generated.",
+                reason="[Fallback Mode: Heuristic Rule] Compare citizen facts against candidate scheme criteria.",
+                is_terminal=False,
+            )
+
+        # Step C: Check for unasked gaps on ALMOST schemes
         almost_matches = [m for m in state.match_results if m.status == EligibilityStatus.ALMOST]
         all_missing = {field for m in almost_matches for field in m.missing_fields}
         unasked_gaps = sorted(list(all_missing - set(state.asked_fields)))
 
-        if almost_matches and unasked_gaps and len(state.pending_questions) < 2:
+        if almost_matches and unasked_gaps and len(state.pending_questions) < 1:
             gap_field = unasked_gaps[0]
             return PlanDecision(
                 citizen_goal=goal,
@@ -137,32 +151,20 @@ class Planner:
                 is_terminal=False,
             )
 
-        # Step C: Portal verification for eligible schemes
-        if not state.verified_schemes and any(m.status == EligibilityStatus.ELIGIBLE for m in state.match_results):
-            eligible = [m.scheme_name for m in state.match_results if m.status == EligibilityStatus.ELIGIBLE]
+        # Step D: Portal verification for eligible schemes
+        eligible_schemes = [m for m in state.match_results if m.status == EligibilityStatus.ELIGIBLE]
+        unverified_urls = [m.official_url for m in eligible_schemes if m.official_url and m.official_url not in state.portal_checks]
+        if unverified_urls:
+            target_url = unverified_urls[0]
             return PlanDecision(
                 citizen_goal=goal,
-                current_understanding=f"Identified {len(eligible)} eligible schemes. Need live portal verification.",
+                current_understanding=f"Identified {len(eligible_schemes)} eligible schemes. Need live portal verification.",
                 information_gaps=[],
                 proposed_action=AgentActionType.VERIFY_OFFICIAL_SOURCE,
                 selected_tool="verify_official_source",
-                tool_args={"schemes": eligible},
+                tool_args={"url": target_url},
                 expected_outcome="Official government portals reachability verified.",
                 reason="[Fallback Mode: Heuristic Rule] Verify portal integrity before reporting.",
-                is_terminal=False,
-            )
-
-        # Step D: Critic audit
-        if not state.critic_notes:
-            return PlanDecision(
-                citizen_goal=goal,
-                current_understanding="Eligible schemes identified and verified. Running safety audit.",
-                information_gaps=[],
-                proposed_action=AgentActionType.COMPARE_ELIGIBILITY,
-                selected_tool="critic_audit",
-                tool_args={},
-                expected_outcome="Factual claims vetted against halluncination risks.",
-                reason="[Fallback Mode: Heuristic Rule] Critic audit required before final delivery.",
                 is_terminal=False,
             )
 
