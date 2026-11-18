@@ -161,6 +161,7 @@ class MatchResult(BaseModel):
     benefit_summary: str = ""
     official_url: str = ""
     documents_required: list[str] = Field(default_factory=list)
+    deadline: Optional[str] = None
 
 
 # --- 5. Trace & Orchestrator State ---

@@ -274,6 +274,62 @@ def test_fix6_truthful_verification_in_ui_and_pdf():
     pdf2.unlink(missing_ok=True)
 
 
+def test_fix7_compliant_calendar_reminder_generation():
+    """FIX 7: RFC 5545 compliant .ics calendar generation with UID, DTSTAMP, and VALARM."""
+    from icalendar import Calendar
+    from experience.actions.calendar_reminders import create_scheme_reminder_ics
+    from shared.schemas import EligibilityStatus, MatchResult
+
+    # Case 1: Scheme with NO deadline
+    match_no_dl = MatchResult(
+        scheme_id="no-dl-scheme",
+        scheme_name="PM Kisan",
+        status=EligibilityStatus.ELIGIBLE,
+        deadline=None,
+    )
+    ics_path1 = create_scheme_reminder_ics(match_no_dl)
+    assert ics_path1.exists()
+
+    cal1 = Calendar.from_ical(ics_path1.read_bytes())
+    event1 = [comp for comp in cal1.walk() if comp.name == "VEVENT"][0]
+
+    # Assert UID, DTSTAMP and VALARM are present
+    assert "UID" in event1
+    assert "@yojanaagent" in str(event1["UID"])
+    assert "DTSTAMP" in event1
+    assert event1["DTSTAMP"].dt.tzinfo is not None
+
+    alarms1 = [comp for comp in event1.walk() if comp.name == "VALARM"]
+    assert len(alarms1) >= 1
+
+    # Assert no-deadline title does not contain "Deadline"
+    summary1 = str(event1["SUMMARY"])
+    assert "Deadline" not in summary1
+    assert summary1 == "Start your application: PM Kisan"
+
+    # Case 2: Scheme WITH deadline
+    match_with_dl = MatchResult(
+        scheme_id="with-dl-scheme",
+        scheme_name="AICTE Scholarship",
+        status=EligibilityStatus.ELIGIBLE,
+        deadline="2026-12-31",
+    )
+    ics_path2 = create_scheme_reminder_ics(match_with_dl)
+    assert ics_path2.exists()
+
+    cal2 = Calendar.from_ical(ics_path2.read_bytes())
+    event2 = [comp for comp in cal2.walk() if comp.name == "VEVENT"][0]
+
+    alarms2 = [comp for comp in event2.walk() if comp.name == "VALARM"]
+    # 7-day and 1-day alarms
+    assert len(alarms2) == 2
+    assert "Deadline" in str(event2["SUMMARY"])
+
+    ics_path1.unlink(missing_ok=True)
+    ics_path2.unlink(missing_ok=True)
+
+
+
 
 
 

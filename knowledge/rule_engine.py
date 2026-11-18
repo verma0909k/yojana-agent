@@ -130,6 +130,7 @@ def evaluate_scheme(profile: CitizenProfile, scheme: Scheme) -> MatchResult:
         benefit_summary=scheme.benefits,
         official_url=scheme.official_url,
         documents_required=scheme.documents_required,
+        deadline=scheme.deadline,
     )
 
 
