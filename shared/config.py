@@ -24,7 +24,8 @@ SCHEMES_DIR.mkdir(parents=True, exist_ok=True)
 # API Keys & Models
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "")
+ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "")
 
 # Agent Constants
 MAX_PLANNER_STEPS = int(os.getenv("MAX_PLANNER_STEPS", "8"))

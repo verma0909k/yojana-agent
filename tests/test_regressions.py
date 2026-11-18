@@ -329,6 +329,79 @@ def test_fix7_compliant_calendar_reminder_generation():
     ics_path2.unlink(missing_ok=True)
 
 
+def test_fix8_llm_client_explicit_failure_handling():
+    """FIX 8: LLM client failure handling, availability checks, and Anthropic SDK support."""
+    from unittest.mock import MagicMock, patch
+    from brain.llm_client import LLMClient, LLMResult, LLMUnavailableError
+
+    # 1. No key means is_available() is False
+    client_empty = LLMClient(google_key="", anthropic_key="")
+    assert client_empty.is_available() is False
+    assert client_empty.configured_provider == "not configured"
+
+    # 2. Calling generate without configured provider raises LLMUnavailableError
+    with pytest.raises(LLMUnavailableError, match="LLM provider not configured"):
+        client_empty.generate("test prompt")
+
+    # 3. Mocked Gemini error does not swallow exception; caller gets typed result
+    client_gemini = LLMClient(google_key="fake-gemini-key", gemini_model="gemini-2.0-flash")
+    assert client_gemini.is_available() is True
+    assert client_gemini.configured_provider == "gemini"
+
+    with patch("langchain_google_genai.ChatGoogleGenerativeAI") as mock_chat:
+        mock_instance = MagicMock()
+        mock_instance.invoke.side_effect = RuntimeError("QuotaExceeded")
+        mock_chat.return_value = mock_instance
+
+        # Normal generate returns LLMResult with ok=False and error details (never prompt!)
+        res = client_gemini.generate("test prompt")
+        assert isinstance(res, LLMResult)
+        assert res.ok is False
+        assert "QuotaExceeded" in res.error
+        assert res.text != "test prompt"
+        assert res.provider == "gemini"
+
+        # generate with raise_on_error=True raises LLMUnavailableError
+        with pytest.raises(LLMUnavailableError, match="QuotaExceeded"):
+            client_gemini.generate("test prompt", raise_on_error=True)
+
+    # 4. Mocked Anthropic error does not swallow exception
+    client_anthropic = LLMClient(google_key="", anthropic_key="fake-anthropic-key", anthropic_model="claude-3-haiku")
+    assert client_anthropic.is_available() is True
+    assert client_anthropic.configured_provider == "anthropic"
+
+    with patch("anthropic.Anthropic") as mock_anthropic_cls:
+        mock_client = MagicMock()
+        mock_client.messages.create.side_effect = RuntimeError("AnthropicOverloaded")
+        mock_anthropic_cls.return_value = mock_client
+
+        res_ant = client_anthropic.generate("test anthropic prompt")
+        assert isinstance(res_ant, LLMResult)
+        assert res_ant.ok is False
+        assert "AnthropicOverloaded" in res_ant.error
+        assert res_ant.text != "test anthropic prompt"
+        assert res_ant.provider == "anthropic"
+
+        with pytest.raises(LLMUnavailableError, match="AnthropicOverloaded"):
+            client_anthropic.generate("test prompt", raise_on_error=True)
+
+    # 5. Successful mock call returns typed result with content
+    with patch("anthropic.Anthropic") as mock_anthropic_cls:
+        mock_client = MagicMock()
+        mock_resp = MagicMock()
+        mock_block = MagicMock()
+        mock_block.text = "Hello from Claude"
+        mock_resp.content = [mock_block]
+        mock_client.messages.create.return_value = mock_resp
+        mock_anthropic_cls.return_value = mock_client
+
+        success_res = client_anthropic.generate("hi")
+        assert success_res.ok is True
+        assert success_res.text == "Hello from Claude"
+        assert success_res.error is None
+
+
+
 
 
 
