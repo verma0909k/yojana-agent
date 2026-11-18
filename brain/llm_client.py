@@ -1,9 +1,14 @@
-"""LLM Client wrapper supporting Google Gemini and Anthropic Claude with strict failure handling."""
+"""LLM Client wrapper supporting Google Gemini, Anthropic Claude, and structured Pydantic output."""
 
 from dataclasses import dataclass
+import json
 import os
-from typing import Optional
+import re
+from typing import Any, Optional, TypeVar
+from pydantic import BaseModel
 from shared.config import ANTHROPIC_API_KEY, ANTHROPIC_MODEL, GOOGLE_API_KEY, GEMINI_MODEL
+
+T = TypeVar("T", bound=BaseModel)
 
 
 class LLMUnavailableError(Exception):
@@ -20,8 +25,27 @@ class LLMResult:
     provider: str = ""
 
 
+def extract_json_object(text: str) -> dict[str, Any]:
+    """Extracts first valid JSON object from LLM response text, stripping markdown fences."""
+    cleaned = text.strip()
+    # Remove markdown code block markers
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+        cleaned = cleaned.strip()
+
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        # Fallback regex search for outer {...}
+        match = re.search(r"(\{.*\})", cleaned, flags=re.DOTALL)
+        if match:
+            return json.loads(match.group(1))
+        raise
+
+
 class LLMClient:
-    """Provides a typed interface for LLM completions via Gemini or Anthropic SDK."""
+    """Provides a typed interface for LLM completions via Gemini or Anthropic SDK with structured output support."""
 
     def __init__(
         self,
@@ -107,3 +131,43 @@ class LLMClient:
                 return LLMResult(ok=False, text="", error=str(e), provider=provider)
 
         raise LLMUnavailableError("No LLM provider available.")
+
+    def generate_structured(
+        self,
+        prompt: str,
+        schema_class: type[T],
+        system_prompt: Optional[str] = None,
+        raise_on_error: bool = False,
+    ) -> tuple[Optional[T], LLMResult]:
+        """Generates structured output validated against a Pydantic model schema.
+
+        Returns (validated_model_instance, raw_llm_result).
+        Never returns hallucinated mock data if the provider is unavailable.
+        """
+        schema_json = json.dumps(schema_class.model_json_schema(), indent=2)
+        instruction = (
+            f"You are a strict JSON generator. Your output MUST be a single valid JSON object adhering strictly "
+            f"to this JSON schema:\n{schema_json}\n"
+            f"Do NOT include markdown formatting like ```json or explanation text. Output raw JSON only."
+        )
+
+        full_system = f"{system_prompt}\n\n{instruction}" if system_prompt else instruction
+        llm_res = self.generate(prompt=prompt, system_prompt=full_system, raise_on_error=raise_on_error)
+
+        if not llm_res.ok:
+            return None, llm_res
+
+        try:
+            data = extract_json_object(llm_res.text)
+            instance = schema_class.model_validate(data)
+            return instance, llm_res
+        except Exception as e:
+            parse_error = f"Structured schema validation failed for {schema_class.__name__}: {e}"
+            if raise_on_error:
+                raise LLMUnavailableError(parse_error) from e
+            return None, LLMResult(
+                ok=False,
+                text=llm_res.text,
+                error=parse_error,
+                provider=llm_res.provider
+            )

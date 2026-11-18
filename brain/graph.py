@@ -7,7 +7,7 @@ from brain.planner import Planner
 from brain.trace import TraceLogger
 from knowledge.matcher import SchemeMatcher
 from knowledge.verifier import Verifier
-from shared.schemas import AgentState, EligibilityStatus, TraceStep
+from shared.schemas import AgentActionType, AgentState, EligibilityStatus, TraceStep
 
 # Initialize modules
 planner = Planner()
@@ -18,18 +18,38 @@ critic = Critic()
 
 
 def planner_node(state: AgentState) -> dict:
-    """Decides which node executes next."""
+    """Decides which node executes next using structured LLM planning."""
     step = state.step_count + 1
-    next_node = planner.decide_next_step(state)
+    decision = planner.plan(state)
+
+    mapping = {
+        AgentActionType.SEARCH_SCHEMES: "matcher",
+        AgentActionType.EXTRACT_CITIZEN_PROFILE: "matcher",
+        AgentActionType.ASK_CITIZEN_QUESTION: "asker",
+        AgentActionType.VERIFY_OFFICIAL_SOURCE: "verifier",
+        AgentActionType.COMPARE_ELIGIBILITY: "critic",
+        AgentActionType.FINALIZE: "finalize",
+    }
+    next_node = mapping.get(decision.proposed_action, "finalize")
 
     trace = TraceStep(
         agent_name="Planner",
-        action=f"Planned step {step} -> Route to: {next_node.upper()}",
-        details={"step": step, "next_node": next_node}
+        action=f"Step {step}: Goal '{decision.citizen_goal[:45]}' -> Action: {decision.proposed_action.value}",
+        details={
+            "step": step,
+            "next_node": next_node,
+            "reason": decision.reason,
+            "selected_tool": decision.selected_tool,
+            "information_gaps": decision.information_gaps,
+            "expected_outcome": decision.expected_outcome
+        }
     )
     return {
         "step_count": step,
         "next_node": next_node,
+        "current_goal": decision.citizen_goal,
+        "plan_decision": decision,
+        "plan_history": state.plan_history + [decision],
         "trace_steps": state.trace_steps + [trace]
     }
 

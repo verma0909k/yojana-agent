@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional
 from shared.config import SCHEMES_DIR
 from shared.schemas import Scheme
+from scripts.export_schemes import SCHEMES_DATA
 
 
 def load_all_schemes(directory: Optional[Path] = None) -> list[Scheme]:

@@ -166,6 +166,64 @@ class MatchResult(BaseModel):
 
 # --- 5. Trace & Orchestrator State ---
 
+class AgentActionType(str, Enum):
+    EXTRACT_CITIZEN_PROFILE = "extract_citizen_profile"
+    SEARCH_SCHEMES = "search_schemes"
+    GET_SCHEME_DETAILS = "get_scheme_details"
+    IDENTIFY_INFORMATION_GAPS = "identify_information_gaps"
+    ASK_CITIZEN_QUESTION = "ask_citizen_question"
+    COMPARE_ELIGIBILITY = "compare_eligibility"
+    VERIFY_OFFICIAL_SOURCE = "verify_official_source"
+    PREPARE_APPLICATION = "prepare_application"
+    FINALIZE = "finalize"
+
+
+class EligibilityConfidence(str, Enum):
+    LIKELY_ELIGIBLE = "LIKELY_ELIGIBLE"
+    POSSIBLY_ELIGIBLE = "POSSIBLY_ELIGIBLE"
+    NOT_ELIGIBLE = "NOT_ELIGIBLE"
+    INSUFFICIENT_INFORMATION = "INSUFFICIENT_INFORMATION"
+    NEEDS_OFFICIAL_VERIFICATION = "NEEDS_OFFICIAL_VERIFICATION"
+
+
+class EvidenceGrounding(BaseModel):
+    """Verifiable source claim extracted directly from an official scheme source."""
+    claim: str
+    source_url: str
+    source_quote: Optional[str] = None
+    verified_at: Optional[str] = None
+    confidence: float = 1.0
+    status: str = "verified"                # "verified", "unverified", "needs_verification"
+
+
+class PlanDecision(BaseModel):
+    """Structured planning decision formulated by the LLM Brain."""
+    citizen_goal: str
+    current_understanding: str
+    information_gaps: list[str] = Field(default_factory=list)
+    proposed_action: AgentActionType = AgentActionType.SEARCH_SCHEMES
+    selected_tool: str = "search_schemes"
+    tool_args: dict[str, Any] = Field(default_factory=dict)
+    expected_outcome: str = ""
+    reason: str = ""
+    requires_replanning: bool = False
+    requires_approval: bool = False
+    is_terminal: bool = False
+
+
+class ToolCallRequest(BaseModel):
+    tool_name: str
+    arguments: dict[str, Any] = Field(default_factory=dict)
+
+
+class ToolExecutionResult(BaseModel):
+    tool_name: str
+    success: bool
+    data: Any = None
+    error: Optional[str] = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class TraceStep(BaseModel):
     """Single step log entry for the live agent trace panel."""
     agent_name: str                        # "Planner", "Asker", "Matcher", "Verifier", "Critic"
@@ -192,3 +250,8 @@ class AgentState(BaseModel):
     next_node: str = "planner"
     is_complete: bool = False
     final_response: str = ""
+    current_goal: str = ""
+    plan_decision: Optional[PlanDecision] = None
+    plan_history: list[PlanDecision] = Field(default_factory=list)
+    evidence_records: list[EvidenceGrounding] = Field(default_factory=list)
+    execution_context: dict[str, Any] = Field(default_factory=dict)

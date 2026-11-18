@@ -1,0 +1,50 @@
+{
+  "id": "nsp-national-scholarship-portal",
+  "name": "National Scholarship Portal (NSP) - Central Schemes",
+  "name_hi": "राष्ट्रीय छात्रवृत्ति पोर्टल (NSP) - केंद्रीय योजनाएं",
+  "ministry": "Ministry of Education",
+  "description": "Single-window electronic platform aggregating Central Government, State Government, and UGC/AICTE-backed scholarship schemes. Students generate a 14-digit OTR number via Aadhaar to apply for multiple scholarships including pre-matric, post-matric, merit, minority, and disability welfare scholarships.",
+  "benefits": "Multiple scholarships under one portal: tuition fee reimbursement, maintenance allowance, merit awards ranging from ₹5,000 to ₹1,00,000+ per annum depending on scheme. Direct Benefit Transfer (DBT) to Aadhaar-linked bank account.",
+  "official_url": "https://scholarships.gov.in",
+  "category_tags": [
+    "student",
+    "scholarship",
+    "education",
+    "higher education",
+    "central government"
+  ],
+  "documents_required": [
+    "Aadhaar Card (linked with active mobile number for OTR)",
+    "Previous Qualifying Examination Marksheet",
+    "Current Institution Enrollment / Bonafide Certificate",
+    "Family Income Certificate (from competent authority)",
+    "Bank Account Passbook (Aadhaar-seeded for DBT)",
+    "Caste / Community Certificate (if applying under SC/ST/OBC/EBC schemes)",
+    "Disability Certificate (if applying under Divyang schemes)"
+  ],
+  "is_active": true,
+  "deadline": null,
+  "criteria": [
+    {
+      "field": "occupation",
+      "operator": "eq",
+      "value": "student",
+      "description": "Applicant must be an enrolled student",
+      "disqualification_reason": "NSP scholarships are only available to enrolled students"
+    },
+    {
+      "field": "has_aadhaar",
+      "operator": "is_true",
+      "value": true,
+      "description": "Aadhaar card is mandatory to generate OTR (One Time Registration) number on NSP",
+      "disqualification_reason": "Aadhaar is a mandatory prerequisite for NSP registration (OTR number generation)"
+    },
+    {
+      "field": "has_bank_account",
+      "operator": "is_true",
+      "value": true,
+      "description": "Active bank account seeded with Aadhaar required for Direct Benefit Transfer",
+      "disqualification_reason": "An Aadhaar-linked bank account is required for scholarship amount via DBT"
+    }
+  ]
+}
