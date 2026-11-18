@@ -25,6 +25,8 @@ def get_farmer_persona() -> CitizenProfile:
         is_bpl=Fact(value=True, confidence=0.9, source=Source.DOCUMENT),
         has_bank_account=Fact(value=True, confidence=1.0, source=Source.DOCUMENT),
         has_aadhaar=Fact(value=True, confidence=1.0, source=Source.DOCUMENT),
+        works_in_fisheries=Fact(value=False, confidence=1.0, source=Source.USER_TEXT),
+        is_shg_member=Fact(value=False, confidence=1.0, source=Source.USER_TEXT),
     )
 
 
@@ -39,9 +41,11 @@ def get_student_persona() -> CitizenProfile:
         annual_income=Fact(value=180000, confidence=0.92, source=Source.DOCUMENT),
         category=Fact(value=Category.OBC, confidence=0.98, source=Source.DOCUMENT),
         occupation=Fact(value=Occupation.STUDENT, confidence=0.99, source=Source.USER_TEXT),
-        education_level=Fact(value="B.Tech 1st Year", confidence=0.95, source=Source.DOCUMENT),
+        education_level=Fact(value="technical_degree", confidence=0.95, source=Source.DOCUMENT),
         has_bank_account=Fact(value=True, confidence=1.0, source=Source.DOCUMENT),
         has_aadhaar=Fact(value=True, confidence=1.0, source=Source.DOCUMENT),
+        works_in_fisheries=Fact(value=False, confidence=1.0, source=Source.USER_TEXT),
+        is_shg_member=Fact(value=False, confidence=1.0, source=Source.USER_TEXT),
     )
 
 
@@ -59,6 +63,8 @@ def get_woman_entrepreneur_persona() -> CitizenProfile:
         is_bpl=Fact(value=True, confidence=0.95, source=Source.DOCUMENT),
         has_bank_account=Fact(value=True, confidence=1.0, source=Source.DOCUMENT),
         has_aadhaar=Fact(value=True, confidence=1.0, source=Source.DOCUMENT),
+        works_in_fisheries=Fact(value=False, confidence=1.0, source=Source.USER_TEXT),
+        is_shg_member=Fact(value=True, confidence=0.95, source=Source.DOCUMENT),
     )
 
 
@@ -76,6 +82,8 @@ def get_senior_citizen_persona() -> CitizenProfile:
         is_bpl=Fact(value=True, confidence=0.98, source=Source.DOCUMENT),
         has_bank_account=Fact(value=True, confidence=1.0, source=Source.DOCUMENT),
         has_aadhaar=Fact(value=True, confidence=1.0, source=Source.DOCUMENT),
+        works_in_fisheries=Fact(value=False, confidence=1.0, source=Source.USER_TEXT),
+        is_shg_member=Fact(value=False, confidence=1.0, source=Source.USER_TEXT),
     )
 
 

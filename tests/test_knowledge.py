@@ -42,6 +42,7 @@ def test_rule_engine_eligible_and_disqualified():
         occupation=Fact(value=Occupation.FARMER, confidence=1.0, source=Source.DOCUMENT),
         has_bank_account=Fact(value=True, confidence=1.0, source=Source.DOCUMENT),
         has_aadhaar=Fact(value=True, confidence=1.0, source=Source.DOCUMENT),
+        land_holding_acres=Fact(value=2.0, confidence=1.0, source=Source.DOCUMENT),
     )
     res3 = evaluate_scheme(farmer_profile, pm_kisan)
     assert res3.status == EligibilityStatus.ELIGIBLE

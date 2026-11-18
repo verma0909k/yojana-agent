@@ -17,6 +17,8 @@ QUESTION_TEMPLATES_EN = {
     "has_bank_account": "Do you have an active bank account in your name?",
     "has_aadhaar": "Do you possess an Aadhaar card?",
     "education_level": "What is your highest completed or ongoing education qualification?",
+    "works_in_fisheries": "Are you actively engaged in fisheries, aquaculture, or allied fishing activities?",
+    "is_shg_member": "Are you an active member of a Self-Help Group (SHG) or Mahila Mandal?",
 }
 
 QUESTION_TEMPLATES_HI = {
@@ -32,6 +34,8 @@ QUESTION_TEMPLATES_HI = {
     "has_bank_account": "क्या आपका स्वयं का बैंक खाता है?",
     "has_aadhaar": "क्या आपके पास आधार कार्ड उपलब्ध है?",
     "education_level": "आपकी उच्चतम शिक्षा योग्यता क्या है?",
+    "works_in_fisheries": "क्या आप मत्स्य पालन (मछली पालन) या संबंधित गतिविधियों से जुड़े हैं?",
+    "is_shg_member": "क्या आप किसी स्वयं सहायता समूह (SHG) या महिला मंडल की सदस्य हैं?",
 }
 
 

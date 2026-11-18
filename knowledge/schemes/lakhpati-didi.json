@@ -33,6 +33,13 @@
       "value": true,
       "description": "Must be resident in rural area / part of rural SHG",
       "disqualification_reason": "Applicant is not in rural jurisdiction"
+    },
+    {
+      "field": "is_shg_member",
+      "operator": "is_true",
+      "value": true,
+      "description": "Must be an active member of a Self-Help Group (SHG)",
+      "disqualification_reason": "Applicant is not an active member of a Self-Help Group (SHG)"
     }
   ]
 }

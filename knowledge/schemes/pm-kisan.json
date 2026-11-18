@@ -39,6 +39,13 @@
       "value": true,
       "description": "Must possess Aadhaar card",
       "disqualification_reason": "Aadhaar is mandatory for PM-KISAN"
+    },
+    {
+      "field": "land_holding_acres",
+      "operator": "gte",
+      "value": 0.01,
+      "description": "Must own cultivable agricultural land (at least 0.01 acres)",
+      "disqualification_reason": "Applicant does not own cultivable agricultural land"
     }
   ]
 }

@@ -20,15 +20,11 @@
   "is_active": true,
   "criteria": [
     {
-      "field": "occupation",
-      "operator": "in",
-      "value": [
-        "farmer",
-        "self_employed",
-        "labourer"
-      ],
-      "description": "Must be engaged in fisheries, farming, or allied aquaculture trade",
-      "disqualification_reason": "Applicant is not in fisheries/allied agriculture trade"
+      "field": "works_in_fisheries",
+      "operator": "is_true",
+      "value": true,
+      "description": "Applicant must be actively engaged in fisheries or aquaculture",
+      "disqualification_reason": "Applicant does not work in fisheries or aquaculture"
     }
   ]
 }

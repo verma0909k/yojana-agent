@@ -36,6 +36,16 @@
       "disqualification_reason": "Applicant is not enrolled as a student"
     },
     {
+      "field": "education_level",
+      "operator": "in",
+      "value": [
+        "diploma",
+        "technical_degree"
+      ],
+      "description": "Applicant must be enrolled in a technical degree or diploma course",
+      "disqualification_reason": "Applicant is not enrolled in a recognized technical degree or diploma course"
+    },
+    {
       "field": "annual_income",
       "operator": "lte",
       "value": 800000,

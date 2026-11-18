@@ -58,6 +58,15 @@ class Occupation(str, Enum):
     RETIRED = "retired"
 
 
+class EducationLevel(str, Enum):
+    CLASS_10 = "class_10"
+    CLASS_12 = "class_12"
+    DIPLOMA = "diploma"
+    GRADUATE = "graduate"
+    TECHNICAL_DEGREE = "technical_degree"
+    POSTGRADUATE = "postgraduate"
+
+
 # --- 3. Citizen Profile ---
 
 class CitizenProfile(BaseModel):
@@ -71,12 +80,14 @@ class CitizenProfile(BaseModel):
     category: Fact[Category] = Fact()
     occupation: Fact[Occupation] = Fact()
     land_holding_acres: Fact[float] = Fact()
-    education_level: Fact[str] = Fact()        # e.g. "class_10", "class_12", "graduate"
+    education_level: Fact[str] = Fact()        # e.g. "class_10", "class_12", "graduate", "technical_degree"
     is_disabled: Fact[bool] = Fact()
     is_bpl: Fact[bool] = Fact()
     family_size: Fact[int] = Fact()
     has_bank_account: Fact[bool] = Fact()
     has_aadhaar: Fact[bool] = Fact()
+    works_in_fisheries: Fact[bool] = Fact()
+    is_shg_member: Fact[bool] = Fact()
 
     def known_fields(self) -> dict[str, Any]:
         return {k: v.value for k, v in self if isinstance(v, Fact) and v.known}

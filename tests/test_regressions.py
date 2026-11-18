@@ -49,3 +49,41 @@ def test_fix1_retriever_never_drops_eligible_schemes():
             assert actual_eligible == expected_eligible, (
                 f"Mismatch for query '{q}': expected {expected_eligible}, got {actual_eligible}"
             )
+
+
+def test_fix2_overmatching_rules_tightened():
+    """FIX 2: Rules that overmatched are tightened with specific criteria."""
+    schemes_dict = {s.id: s for s in load_all_schemes()}
+
+    # 1. PM-Matsya Sampada requires works_in_fisheries
+    farmer = get_farmer_persona()  # works_in_fisheries is False
+    res_matsya = evaluate_all(profile=farmer, schemes=[schemes_dict["pm-matsya-sampada"]])[0]
+    assert res_matsya.status == EligibilityStatus.NOT_ELIGIBLE
+    assert "fisheries" in res_matsya.deciding_rule.lower()
+
+    # 2. AICTE Pragati requires technical_degree or diploma
+    student = get_student_persona()  # education_level is "technical_degree"
+    res_pragati = evaluate_all(profile=student, schemes=[schemes_dict["aicte-pragati-scholarship"]])[0]
+    assert res_pragati.status == EligibilityStatus.ELIGIBLE
+
+    non_tech_student = get_student_persona()
+    non_tech_student.set_fact("education_level", "class_10")
+    res_pragati_fail = evaluate_all(profile=non_tech_student, schemes=[schemes_dict["aicte-pragati-scholarship"]])[0]
+    assert res_pragati_fail.status == EligibilityStatus.NOT_ELIGIBLE
+
+    # 3. Lakhpati Didi requires is_shg_member
+    woman = get_woman_entrepreneur_persona()  # is_shg_member is True
+    res_lakhpati = evaluate_all(profile=woman, schemes=[schemes_dict["lakhpati-didi"]])[0]
+    assert res_lakhpati.status == EligibilityStatus.ELIGIBLE
+
+    non_shg_woman = get_woman_entrepreneur_persona()
+    non_shg_woman.set_fact("is_shg_member", False)
+    res_lakhpati_fail = evaluate_all(profile=non_shg_woman, schemes=[schemes_dict["lakhpati-didi"]])[0]
+    assert res_lakhpati_fail.status == EligibilityStatus.NOT_ELIGIBLE
+
+    # 4. PM-KISAN requires land_holding_acres >= 0.01
+    landless_farmer = get_farmer_persona()
+    landless_farmer.set_fact("land_holding_acres", 0.0)
+    res_kisan_fail = evaluate_all(profile=landless_farmer, schemes=[schemes_dict["pm-kisan"]])[0]
+    assert res_kisan_fail.status == EligibilityStatus.NOT_ELIGIBLE
+

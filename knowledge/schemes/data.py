@@ -38,6 +38,13 @@ SCHEMES_DATA = [
                 "value": True,
                 "description": "Must possess Aadhaar card",
                 "disqualification_reason": "Aadhaar is mandatory for PM-KISAN"
+            },
+            {
+                "field": "land_holding_acres",
+                "operator": "gte",
+                "value": 0.01,
+                "description": "Must own cultivable agricultural land (at least 0.01 acres)",
+                "disqualification_reason": "Applicant does not own cultivable agricultural land"
             }
         ]
     },
@@ -444,6 +451,13 @@ SCHEMES_DATA = [
                 "value": True,
                 "description": "Must be resident in rural area / part of rural SHG",
                 "disqualification_reason": "Applicant is not in rural jurisdiction"
+            },
+            {
+                "field": "is_shg_member",
+                "operator": "is_true",
+                "value": True,
+                "description": "Must be an active member of a Self-Help Group (SHG)",
+                "disqualification_reason": "Applicant is not an active member of a Self-Help Group (SHG)"
             }
         ]
     },
@@ -472,6 +486,13 @@ SCHEMES_DATA = [
                 "value": "student",
                 "description": "Applicant must be an enrolled student",
                 "disqualification_reason": "Applicant is not enrolled as a student"
+            },
+            {
+                "field": "education_level",
+                "operator": "in",
+                "value": ["diploma", "technical_degree"],
+                "description": "Applicant must be enrolled in a technical degree or diploma course",
+                "disqualification_reason": "Applicant is not enrolled in a recognized technical degree or diploma course"
             },
             {
                 "field": "annual_income",
@@ -551,11 +572,11 @@ SCHEMES_DATA = [
         "is_active": True,
         "criteria": [
             {
-                "field": "occupation",
-                "operator": "in",
-                "value": ["farmer", "self_employed", "labourer"],
-                "description": "Must be engaged in fisheries, farming, or allied aquaculture trade",
-                "disqualification_reason": "Applicant is not in fisheries/allied agriculture trade"
+                "field": "works_in_fisheries",
+                "operator": "is_true",
+                "value": True,
+                "description": "Applicant must be actively engaged in fisheries or aquaculture",
+                "disqualification_reason": "Applicant does not work in fisheries or aquaculture"
             }
         ]
     },
