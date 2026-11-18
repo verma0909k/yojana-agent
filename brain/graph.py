@@ -4,6 +4,7 @@ from langgraph.graph import StateGraph, END
 from brain.asker import GapAsker
 from brain.critic import Critic
 from brain.planner import Planner
+from brain.state_manager import StateManager
 from brain.tool_registry import ToolRegistry
 from brain.trace import TraceLogger
 from knowledge.matcher import SchemeMatcher
@@ -17,6 +18,7 @@ asker = GapAsker()
 verifier = Verifier()
 critic = Critic()
 tool_registry = ToolRegistry()
+state_manager = StateManager()
 
 
 def planner_node(state: AgentState) -> dict:
@@ -185,6 +187,9 @@ def tool_executor_node(state: AgentState) -> dict:
         elif tool_name == "ask_citizen_question" and isinstance(exec_result.data, dict):
             updates["pending_questions"] = state.pending_questions + [exec_result.data.get("question", "")]
             updates["asked_fields"] = state.asked_fields + [exec_result.data.get("field_name", "")]
+            if state.execution_context.get("pause_on_question", False):
+                updates["is_paused"] = True
+                updates["pause_reason"] = f"Awaiting citizen response on: {exec_result.data.get('field_name', '')}"
         elif tool_name == "verify_official_source" and isinstance(exec_result.data, dict):
             checks = dict(state.portal_checks)
             url_checked = exec_result.data.get("url", "")
@@ -232,10 +237,32 @@ def finalize_node(state: AgentState) -> dict:
     }
 
 
+def pause_node(state: AgentState) -> dict:
+    """Handles workflow interruption when awaiting citizen input."""
+    state_manager.save_session(state.session_id, state)
+    trace = TraceStep(
+        agent_name="GraphInterrupt",
+        action="Execution paused waiting for citizen input",
+        details={"session_id": state.session_id, "pause_reason": state.pause_reason}
+    )
+    return {
+        "trace_steps": state.trace_steps + [trace]
+    }
+
+
+def route_after_tool(state: AgentState) -> str:
+    """Checks whether the agent paused after tool execution or returns to planner."""
+    if state.is_paused:
+        return "pause"
+    return "planner"
+
+
 def route_decision(state: AgentState) -> str:
     """Routes based on planner's decided next node."""
+    if state.is_paused:
+        return "pause"
     next_node = state.next_node
-    if next_node in ["matcher", "asker", "verifier", "critic", "tool_executor", "finalize"]:
+    if next_node in ["matcher", "asker", "verifier", "critic", "tool_executor", "finalize", "pause"]:
         return next_node
     return "finalize"
 
@@ -250,6 +277,7 @@ def build_graph():
     workflow.add_node("verifier", verifier_node)
     workflow.add_node("critic", critic_node)
     workflow.add_node("tool_executor", tool_executor_node)
+    workflow.add_node("pause", pause_node)
     workflow.add_node("finalize", finalize_node)
 
     workflow.set_entry_point("planner")
@@ -263,6 +291,7 @@ def build_graph():
             "verifier": "verifier",
             "critic": "critic",
             "tool_executor": "tool_executor",
+            "pause": "pause",
             "finalize": "finalize",
         }
     )
@@ -271,7 +300,15 @@ def build_graph():
     workflow.add_edge("asker", "planner")
     workflow.add_edge("verifier", "planner")
     workflow.add_edge("critic", "planner")
-    workflow.add_edge("tool_executor", "planner")
+    workflow.add_conditional_edges(
+        "tool_executor",
+        route_after_tool,
+        {
+            "planner": "planner",
+            "pause": "pause",
+        }
+    )
+    workflow.add_edge("pause", END)
     workflow.add_edge("finalize", END)
 
     return workflow.compile()

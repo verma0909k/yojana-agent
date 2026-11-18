@@ -234,6 +234,7 @@ class TraceStep(BaseModel):
 
 class AgentState(BaseModel):
     """State passing through the LangGraph loop."""
+    session_id: str = "default_session"
     profile: CitizenProfile = Field(default_factory=CitizenProfile)
     user_query: str = ""
     language: str = "en"
@@ -249,6 +250,8 @@ class AgentState(BaseModel):
     max_steps: int = 8
     next_node: str = "planner"
     is_complete: bool = False
+    is_paused: bool = False
+    pause_reason: str = ""
     final_response: str = ""
     current_goal: str = ""
     plan_decision: Optional[PlanDecision] = None
