@@ -128,10 +128,13 @@ def verifier_node(state: AgentState) -> dict:
 
 def critic_node(state: AgentState) -> dict:
     """Performs safety and hallucination audit on generated recommendations and self-prunes invalid schemes."""
-    audit_report = critic.audit(state.match_results)
+    audit_report = critic.audit(state.match_results, state.evidence_records)
 
     pruned = audit_report.get("pruned_count", 0)
+    requires_replanning = audit_report.get("requires_replanning", False)
     action_desc = f"Audited claims: approved {len(audit_report['approved_results'])} schemes, pruned {pruned} ungrounded"
+    if requires_replanning:
+        action_desc += " [Replanning Triggered]"
 
     trace = TraceStep(
         agent_name="Critic",
@@ -140,14 +143,22 @@ def critic_node(state: AgentState) -> dict:
             "valid": audit_report["is_valid"],
             "flags_count": len(audit_report["flags"]),
             "pruned_schemes": pruned,
+            "requires_replanning": requires_replanning,
             "flags": audit_report["flags"][:5]
         }
     )
-    return {
+    updates: dict = {
         "match_results": audit_report["approved_results"],
         "critic_notes": audit_report["flags"] or ["All claims verified and grounded"],
         "trace_steps": state.trace_steps + [trace]
     }
+    if state.plan_decision and requires_replanning:
+        updated_decision = state.plan_decision.model_copy()
+        updated_decision.requires_replanning = True
+        updated_decision.reason = f"Critic flagged ungrounded results: {', '.join(audit_report.get('replanning_notes', []))}"
+        updates["plan_decision"] = updated_decision
+
+    return updates
 
 
 def tool_executor_node(state: AgentState) -> dict:
@@ -224,6 +235,8 @@ def finalize_node(state: AgentState) -> dict:
         for m in almost[:5]:
             response_lines.append(f"- **{m.scheme_name}**: Missing info for {', '.join(m.missing_fields)}")
             response_lines.append(f"  - **Official Link**: [{m.official_url}]({m.official_url})")
+
+    response_lines.append(f"\n> **Notice**: {critic.disclaimer}")
 
     trace = TraceStep(
         agent_name="Orchestrator",

@@ -136,3 +136,43 @@ class Verifier:
             inconsistencies.append(f"Low confidence document extractions detected for: {', '.join(low_conf)}")
 
         return inconsistencies
+
+    def fetch_official_evidence(self, url: str, max_chars: int = 1500) -> dict[str, Any]:
+        """Fetches page content from official portal and extracts textual evidence for grounding."""
+        if not url or not url.startswith("http"):
+            return {"url": url, "success": False, "error": "Invalid URL", "text_excerpt": ""}
+
+        try:
+            resp = requests.get(url, headers=DEFAULT_HEADERS, timeout=self.timeout)
+            if resp.status_code == 200:
+                raw_html = resp.text
+                import re
+                # Strip scripts and styles
+                clean_text = re.sub(r"<(script|style).*?>.*?</\1>", "", raw_html, flags=re.DOTALL | re.IGNORECASE)
+                # Strip remaining HTML tags
+                text = re.sub(r"<[^>]+>", " ", clean_text)
+                # Normalize whitespace
+                text = re.sub(r"\s+", " ", text).strip()
+                excerpt = text[:max_chars]
+                return {
+                    "url": url,
+                    "success": True,
+                    "status_code": resp.status_code,
+                    "text_excerpt": excerpt,
+                    "length": len(excerpt),
+                }
+            return {
+                "url": url,
+                "success": False,
+                "status_code": resp.status_code,
+                "text_excerpt": "",
+                "error": f"HTTP {resp.status_code}",
+            }
+        except Exception as e:
+            return {
+                "url": url,
+                "success": False,
+                "status_code": None,
+                "text_excerpt": "",
+                "error": str(e),
+            }
