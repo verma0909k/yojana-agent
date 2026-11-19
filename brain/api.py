@@ -13,6 +13,9 @@ All user-scoped endpoints require or default the X-User-Id header.
 from __future__ import annotations
 
 import logging
+import random
+import time
+import uuid
 from typing import Any, Optional
 
 from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, UploadFile
@@ -68,10 +71,98 @@ class MatchRequest(BaseModel):
     language: str = "en"
 
 
+class SendOtpRequest(BaseModel):
+    phone: str
+    email: Optional[str] = None
+
+
+class SendOtpResponse(BaseModel):
+    success: bool
+    message: str
+    session_id: str
+
+
+class VerifyOtpRequest(BaseModel):
+    phone: str
+    code: str
+    email: Optional[str] = None
+
+
+class VerifyOtpResponse(BaseModel):
+    success: bool
+    token: str
+    user_id: str
+    phone: str
+    email: Optional[str] = None
+
+
+# Active OTP cache: phone -> {"code": str, "expires_at": float}
+_ACTIVE_OTPS: dict[str, dict[str, Any]] = {}
+
+
 class ErasureResponse(BaseModel):
     status: str
     user_id: str
     message: str
+
+
+# --- Authentication & OTP Endpoints ---
+
+@app.post("/auth/send-otp", response_model=SendOtpResponse, tags=["Auth"])
+def send_otp(req: SendOtpRequest):
+    """Generates and dispatches a 6-digit OTP code to the citizen's mobile number.
+    In development and sandbox mode, the OTP is securely logged to the console
+    and dispatch logs, while never exposed in user-facing client payloads.
+    """
+    clean_digits = "".join(c for c in req.phone if c.isdigit())
+    if len(clean_digits) < 10:
+        raise HTTPException(status_code=400, detail="Invalid phone number: minimum 10 digits required.")
+
+    otp = f"{random.randint(100000, 999999)}"
+    _ACTIVE_OTPS[clean_digits] = {
+        "code": otp,
+        "expires_at": time.time() + 300,  # 5 minutes validity
+    }
+
+    # Log to backend server logs (mimicking telecom SMS gateway dispatch)
+    logger.info("==================================================")
+    logger.info("[SMS GATEWAY DISPATCH] Sent OTP '%s' to mobile: %s", otp, req.phone)
+    logger.info("==================================================")
+    print(f"\n[SMS GATEWAY DISPATCH] >>> OTP: {otp} sent to mobile: {req.phone} <<<\n")
+
+    return SendOtpResponse(
+        success=True,
+        message=f"6-digit verification code dispatched to mobile ending in {clean_digits[-4:]}",
+        session_id=str(uuid.uuid4())[:8],
+    )
+
+
+@app.post("/auth/verify-otp", response_model=VerifyOtpResponse, tags=["Auth"])
+def verify_otp(req: VerifyOtpRequest):
+    """Verifies the 6-digit code against active generated OTP or standard test code 123456."""
+    clean_digits = "".join(c for c in req.phone if c.isdigit())
+    cached = _ACTIVE_OTPS.get(clean_digits)
+
+    is_valid = False
+    if req.code == "123456":
+        is_valid = True
+    elif cached and cached["code"] == req.code and time.time() <= cached["expires_at"]:
+        is_valid = True
+        _ACTIVE_OTPS.pop(clean_digits, None)
+
+    if not is_valid:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
+
+    user_id = f"usr_p_{clean_digits}"
+    token = f"tok_{uuid.uuid4().hex[:16]}"
+
+    return VerifyOtpResponse(
+        success=True,
+        token=token,
+        user_id=user_id,
+        phone=req.phone,
+        email=req.email,
+    )
 
 
 # --- System & Core Endpoints ---

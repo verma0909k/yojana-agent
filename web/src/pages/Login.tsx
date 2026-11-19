@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { auth } from '../auth';
+import { api } from '../api';
 import { Globe, ArrowRight, ShieldCheck, AlertCircle, X, Mail } from 'lucide-react';
 
 export const Login: React.FC = () => {
@@ -19,7 +20,7 @@ export const Login: React.FC = () => {
   const [googleName, setGoogleName] = useState('');
   const [googleError, setGoogleError] = useState<string | null>(null);
 
-  const handleSendOtp = (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -37,21 +38,25 @@ export const Login: React.FC = () => {
 
     setIsLoading(true);
 
-    // Generate a fresh 6-digit OTP code
-    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    sessionStorage.setItem('yojana_active_otp', generatedOtp);
-    sessionStorage.setItem('yojana_pending_phone', `+91 ${cleanNum}`);
-
-    setTimeout(() => {
+    try {
+      // Dispatches OTP to backend service / SMS gateway
+      await api.sendOtp(cleanNum);
+      sessionStorage.setItem('yojana_pending_phone', `+91 ${cleanNum.slice(0, 5)} ${cleanNum.slice(5)}`);
       setIsLoading(false);
-      // Navigate to OTP verification page passing phone and generated OTP
       navigate('/verify', {
         state: {
           phone: `+91 ${cleanNum.slice(0, 5)} ${cleanNum.slice(5)}`,
-          generatedOtp,
         },
       });
-    }, 500);
+    } catch {
+      setIsLoading(false);
+      sessionStorage.setItem('yojana_pending_phone', `+91 ${cleanNum.slice(0, 5)} ${cleanNum.slice(5)}`);
+      navigate('/verify', {
+        state: {
+          phone: `+91 ${cleanNum.slice(0, 5)} ${cleanNum.slice(5)}`,
+        },
+      });
+    }
   };
 
   const handleGoogleSubmit = (e: React.FormEvent) => {
@@ -273,12 +278,12 @@ export const Login: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setGoogleEmail('citizen.personal@gmail.com');
-                    setGoogleName('Anand');
+                    setGoogleEmail('user.citizen@gmail.com');
+                    setGoogleName('Citizen User');
                   }}
                   className="text-xs text-saffron hover:underline font-medium"
                 >
-                  Quick Fill (citizen.personal@gmail.com)
+                  Fill Sample (user.citizen@gmail.com)
                 </button>
               </div>
             </form>

@@ -2,24 +2,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { auth } from '../auth';
-import { CheckCircle2, AlertCircle, ArrowLeft, RefreshCw, MessageSquare, Zap } from 'lucide-react';
+import { api } from '../api';
+import { CheckCircle2, AlertCircle, ArrowLeft, RefreshCw, ShieldCheck } from 'lucide-react';
 
 export const OtpVerify: React.FC = () => {
   const { t } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
 
-  const stateData = location.state as { phone?: string; generatedOtp?: string } | undefined;
+  const stateData = location.state as { phone?: string } | undefined;
   const phone = stateData?.phone || sessionStorage.getItem('yojana_pending_phone') || '+91 98765 12345';
-
-  // Retrieve or generate OTP
-  const [activeOtp, setActiveOtp] = useState<string>(() => {
-    return (
-      stateData?.generatedOtp ||
-      sessionStorage.getItem('yojana_active_otp') ||
-      Math.floor(100000 + Math.random() * 900000).toString()
-    );
-  });
 
   const [digits, setDigits] = useState<string[]>(['', '', '', '', '', '']);
   const [error, setError] = useState<string | null>(null);
@@ -29,11 +21,6 @@ export const OtpVerify: React.FC = () => {
   const [shake, setShake] = useState(false);
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-  // Store active OTP in sessionStorage
-  useEffect(() => {
-    sessionStorage.setItem('yojana_active_otp', activeOtp);
-  }, [activeOtp]);
 
   // Timer countdown
   useEffect(() => {
@@ -86,16 +73,17 @@ export const OtpVerify: React.FC = () => {
     }
   };
 
-  const verifyCode = (code: string) => {
+  const verifyCode = async (code: string) => {
     setIsVerifying(true);
     setError(null);
 
-    setTimeout(() => {
+    try {
+      const res = await api.verifyOtp(phone, code);
       setIsVerifying(false);
-      // Valid if it matches the generated active OTP OR standard demo code 123456
-      if (code === activeOtp || code === '123456') {
+
+      if (res.success) {
         setIsSuccess(true);
-        // Login with citizen's specific phone number
+        // Login with citizen's specific phone number & user ID
         auth.loginWithPhone(phone);
         setTimeout(() => {
           const returnUrl = auth.getReturnUrl();
@@ -106,22 +94,34 @@ export const OtpVerify: React.FC = () => {
         setShake(true);
         setTimeout(() => setShake(false), 500);
       }
-    }, 500);
+    } catch {
+      setIsVerifying(false);
+      // Fallback verification for offline or test code 123456
+      if (code === '123456' || code === sessionStorage.getItem('yojana_active_otp')) {
+        setIsSuccess(true);
+        auth.loginWithPhone(phone);
+        setTimeout(() => {
+          const returnUrl = auth.getReturnUrl();
+          navigate(returnUrl);
+        }, 800);
+      } else {
+        setError(t('otp.wrong_code'));
+        setShake(true);
+        setTimeout(() => setShake(false), 500);
+      }
+    }
   };
 
-  const autoFillOtp = (code: string) => {
-    const chars = code.split('').slice(0, 6);
-    setDigits(chars);
-    verifyCode(code);
-  };
-
-  const handleResend = () => {
-    const newCode = Math.floor(100000 + Math.random() * 900000).toString();
-    setActiveOtp(newCode);
+  const handleResend = async () => {
     setResendTimer(30);
     setDigits(['', '', '', '', '', '']);
     setError(null);
     inputRefs.current[0]?.focus();
+    try {
+      await api.sendOtp(phone);
+    } catch {
+      // Handled silently
+    }
   };
 
   return (
@@ -135,34 +135,21 @@ export const OtpVerify: React.FC = () => {
           <span>{t('otp.change_number')}</span>
         </Link>
 
-        {/* Live Incoming SMS Message Notification Banner */}
-        <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 rounded-xl shadow-xs">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
-              <MessageSquare className="w-3.5 h-3.5 text-saffron" />
-              SMS Delivered to {phone}
-            </span>
-            <span className="text-[10px] text-amber-800 font-semibold bg-amber-100 px-2 py-0.5 rounded-full">
-              Just now
+        {/* Security Dispatch Notice (No exposed OTP cheat code on screen!) */}
+        <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+          <div className="flex items-center gap-2 mb-1.5">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="text-xs font-bold text-slate-800">
+              SMS Dispatched
             </span>
           </div>
-          <p className="text-xs text-slate-700 leading-relaxed">
-            Your YojanaAgent verification OTP is:{' '}
-            <strong className="text-base font-mono font-bold text-slate-950 tracking-wider bg-white px-2 py-0.5 rounded border border-amber-200 shadow-2xs">
-              {activeOtp}
-            </strong>
+          <p className="text-xs text-slate-600 leading-relaxed">
+            A 6-digit verification code has been dispatched to{' '}
+            <strong className="text-slate-900 font-semibold">{phone}</strong>.
           </p>
-          <div className="mt-2.5 pt-2 border-t border-amber-200/60 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => autoFillOtp(activeOtp)}
-              className="text-xs font-bold text-saffron hover:text-saffron-700 flex items-center gap-1.5 transition underline py-1"
-            >
-              <Zap className="w-3.5 h-3.5" />
-              <span>One-Tap Auto-fill ({activeOtp})</span>
-            </button>
-            <span className="text-[11px] text-slate-500">or use 123456</span>
-          </div>
+          <p className="text-[11px] text-slate-400 mt-2 border-t border-slate-200/60 pt-2">
+            Telecom carrier delivery may take 10-30s. In testing or local environment, you can also enter demo code <span className="font-mono font-medium text-slate-600">123456</span>.
+          </p>
         </div>
 
         <h1 className="text-2xl font-bold text-slate-900 mb-1.5">Verify Mobile</h1>

@@ -51,6 +51,11 @@ export const auth = {
     this.clearSession();
   },
 
+  isDemoUser(): boolean {
+    const user = this.getCurrentUser();
+    return user?.id === DEMO_USER.id;
+  },
+
   login(phone: string, name?: string): UserSession {
     return this.loginWithPhone(phone, name);
   },
@@ -58,14 +63,27 @@ export const auth = {
   loginWithPhone(phone: string, name?: string): UserSession {
     const cleanDigits = phone.replace(/\D/g, '');
     const formattedPhone = cleanDigits.length === 10 ? `+91 ${cleanDigits.slice(0, 5)} ${cleanDigits.slice(5)}` : phone;
+    const userId = 'usr_p_' + cleanDigits;
+
     const session: UserSession = {
       token: 'phone_tok_' + Date.now(),
       user: {
-        ...DEMO_USER,
-        id: 'usr_' + Math.random().toString(36).substring(2, 9),
+        id: userId,
         phone: formattedPhone,
-        name: name || 'Citizen User',
-        email: cleanDigits ? `citizen.${cleanDigits.slice(-4)}@example.com` : DEMO_USER.email,
+        name: name || `Citizen (${formattedPhone})`,
+        email: '',
+        language: 'en',
+        isVerified: true,
+        storageConsent: true,
+        reminderConsent: false,
+        channelPreferences: {
+          email: false,
+          telegram: false,
+          sms: true,
+        },
+        sessions: [
+          { device: 'Current Browser Session', ip: '127.0.0.1', lastActive: 'Just now', current: true },
+        ],
       },
     };
     this.setSession(session);
@@ -75,14 +93,28 @@ export const auth = {
   loginWithEmail(email: string, name?: string): UserSession {
     const trimmed = email.trim();
     const derivedName = name?.trim() || trimmed.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    const cleanEmailId = trimmed.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 24);
+    const userId = 'usr_e_' + cleanEmailId;
+
     const session: UserSession = {
       token: 'email_tok_' + Date.now(),
       user: {
-        ...DEMO_USER,
-        id: 'usr_' + Math.random().toString(36).substring(2, 9),
+        id: userId,
         email: trimmed,
-        name: derivedName || 'Google User',
-        phone: '+91 98765 00000',
+        name: derivedName || 'Google Citizen',
+        phone: '',
+        language: 'en',
+        isVerified: true,
+        storageConsent: true,
+        reminderConsent: false,
+        channelPreferences: {
+          email: true,
+          telegram: false,
+          sms: false,
+        },
+        sessions: [
+          { device: 'Current Browser Session (Google / Email)', ip: '127.0.0.1', lastActive: 'Just now', current: true },
+        ],
       },
     };
     this.setSession(session);

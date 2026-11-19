@@ -51,7 +51,7 @@ export interface SchemeUpdate {
   status: 'NEEDS_REVIEW' | 'APPROVED';
 }
 
-export type NotificationType = 'DOCUMENT_EXPIRY' | 'DEADLINE' | 'SCHEME_CHANGE' | 'APPLICATION';
+export type NotificationType = 'DOCUMENT_EXPIRY' | 'DEADLINE' | 'SCHEME_CHANGE' | 'APPLICATION' | 'INFO';
 
 export interface Notification {
   id: string;

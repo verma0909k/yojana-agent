@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { api } from '../api';
+import { auth } from '../auth';
 import { ExtractedFact } from '../types';
 import {
   Mic,
@@ -86,39 +87,67 @@ export const Home: React.FC = () => {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
 
-  const [query, setQuery] = useState(
-    language === 'hi'
-      ? 'मैं हरियाणा में बी.टेक कर रही 19 वर्षीय छात्रा हूँ। मेरे परिवार की वार्षिक आय ₹1,80,000 है। मुझे छात्रवृत्ति की आवश्यकता है।'
-      : 'I am a 19-year-old female student pursuing B.Tech in Haryana with family income ₹1,80,000. Looking for central and state scholarships.'
-  );
+  const isDemo = auth.isDemoUser();
+  const currentUser = auth.getCurrentUser();
+  const userFactKey = currentUser ? `yojana_user_facts_${currentUser.id}` : 'yojana_guest_facts';
+
+  const [query, setQuery] = useState(() => {
+    if (isDemo) {
+      return language === 'hi'
+        ? 'मैं हरियाणा में बी.टेक कर रही 19 वर्षीय छात्रा हूँ। मेरे परिवार की वार्षिक आय ₹1,80,000 है। मुझे छात्रवृत्ति की आवश्यकता है।'
+        : 'I am a 19-year-old female student pursuing B.Tech in Haryana with family income ₹1,80,000. Looking for central and state scholarships.';
+    }
+    return '';
+  });
 
   const [isRecording, setIsRecording] = useState(false);
-  const [activePersona, setActivePersona] = useState<string>('student');
+  const [activePersona, setActivePersona] = useState<string>(isDemo ? 'student' : '');
 
-  // Facts panel state
-  const [facts, setFacts] = useState<ExtractedFact[]>([
-    { id: 'f1', field: 'Occupation', value: 'Student (Engineering)', confidence: 0.98, source: 'from document' },
-    { id: 'f2', field: 'Gender', value: 'Female', confidence: 0.99, source: 'from document' },
-    { id: 'f3', field: 'State', value: 'Haryana', confidence: 0.95, source: 'from document' },
-    { id: 'f4', field: 'Family Income', value: '₹1,80,000 / yr', confidence: 0.96, source: 'from document' },
-    { id: 'f5', field: 'Age', value: '19 Years', confidence: 0.99, source: 'from document' },
-    { id: 'f6', field: 'Caste Category', value: 'General / EWS', confidence: 0.89, source: 'self-reported' },
-  ]);
+  // Facts panel state - isolated per citizen!
+  const [facts, setFacts] = useState<ExtractedFact[]>(() => {
+    if (isDemo) {
+      return [
+        { id: 'f1', field: 'Occupation', value: 'Student (Engineering)', confidence: 0.98, source: 'from document' },
+        { id: 'f2', field: 'Gender', value: 'Female', confidence: 0.99, source: 'from document' },
+        { id: 'f3', field: 'State', value: 'Haryana', confidence: 0.95, source: 'from document' },
+        { id: 'f4', field: 'Family Income', value: '₹1,80,000 / yr', confidence: 0.96, source: 'from document' },
+        { id: 'f5', field: 'Age', value: '19 Years', confidence: 0.99, source: 'from document' },
+        { id: 'f6', field: 'Caste Category', value: 'General / EWS', confidence: 0.89, source: 'self-reported' },
+      ];
+    }
+    const saved = localStorage.getItem(userFactKey);
+    return saved ? JSON.parse(saved) : [];
+  });
 
   const [editingFactId, setEditingFactId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
 
   // Onboarding checklist items
   const [checklist, setChecklist] = useState({
-    describedSituation: true,
-    uploadedDocument: true,
+    describedSituation: isDemo || facts.length > 0,
+    uploadedDocument: isDemo,
     enabledReminders: false,
   });
 
+  // Check actual vault documents for checklist
+  useEffect(() => {
+    api.getDocuments().then((docs) => {
+      setChecklist((prev) => ({
+        ...prev,
+        uploadedDocument: docs.length > 0,
+        describedSituation: facts.length > 0 || query.trim().length > 10,
+      }));
+    });
+  }, [facts, query]);
+
   const handleSelectPersona = (persona: (typeof DEMO_PERSONAS)[0]) => {
     setActivePersona(persona.id);
-    setQuery(language === 'hi' ? persona.textHi : persona.textEn);
+    const newQuery = language === 'hi' ? persona.textHi : persona.textEn;
+    setQuery(newQuery);
     setFacts(persona.facts);
+    if (!isDemo) {
+      localStorage.setItem(userFactKey, JSON.stringify(persona.facts));
+    }
   };
 
   const handleVoiceToggle = () => {
@@ -144,7 +173,11 @@ export const Home: React.FC = () => {
   };
 
   const handleSaveFact = (id: string) => {
-    setFacts(facts.map((f) => (f.id === id ? { ...f, value: editValue, source: 'self-reported' } : f)));
+    const updated = facts.map((f) => (f.id === id ? { ...f, value: editValue, source: 'self-reported' as const } : f));
+    setFacts(updated);
+    if (!isDemo) {
+      localStorage.setItem(userFactKey, JSON.stringify(updated));
+    }
     setEditingFactId(null);
   };
 
@@ -152,6 +185,9 @@ export const Home: React.FC = () => {
     setFacts([]);
     setQuery('');
     setActivePersona('');
+    if (!isDemo) {
+      localStorage.removeItem(userFactKey);
+    }
   };
 
   const handleFindSchemes = () => {
