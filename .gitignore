@@ -7,9 +7,20 @@ __pycache__/
 .pytest_cache/
 *.pyc
 
-# Local Data & SQLite
+# Local Data & SQLite & Vault
 *.db
 knowledge/chroma_db/
+knowledge/vault/
+data/
+*.enc
+.vault_key
+
+# Node / Web Frontend
+web/node_modules/
+web/dist/
+web/.vite/
+*.tsbuildinfo
 
 # Action Outputs
 output/
+

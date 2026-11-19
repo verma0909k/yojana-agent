@@ -258,3 +258,237 @@ class AgentState(BaseModel):
     plan_history: list[PlanDecision] = Field(default_factory=list)
     evidence_records: list[EvidenceGrounding] = Field(default_factory=list)
     execution_context: dict[str, Any] = Field(default_factory=dict)
+
+
+# --- 6. Phase 1 Document Vault & Consistency Schemas ---
+
+class FieldConfidence(BaseModel):
+    field_name: str
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    value_str: Optional[str] = None
+
+
+class DocumentExtraction(BaseModel):
+    """Structured extraction returned by multimodal vision LLM from citizen identity/revenue documents."""
+    doc_type: str = Field(description="Detected document type (e.g., Aadhaar Card, Income Certificate, Caste Certificate, Ration Card, Land Record, Bank Passbook)")
+    holder_name: Optional[str] = Field(default=None, description="Full name of certificate holder or citizen")
+    date_of_birth: Optional[str] = Field(default=None, description="Date of birth in YYYY-MM-DD or DD/MM/YYYY format if present")
+    issue_date: Optional[str] = Field(default=None, description="Document issue date in YYYY-MM-DD if printed")
+    expiry_date: Optional[str] = Field(default=None, description="Explicit expiration date if printed on document")
+    validity_period: Optional[str] = Field(default=None, description="Validity period textual clause if printed (e.g., 'Valid for 1 year from date of issue')")
+    income_amount: Optional[int] = Field(default=None, description="Annual or monthly family income figure in Rupees if stated")
+    id_last4: Optional[str] = Field(default=None, description="Last 4 digits of document ID/Aadhaar/Passbook number (masked for privacy)")
+    per_field_confidence: list[FieldConfidence] = Field(default_factory=list, description="Confidence score per extracted field")
+    raw_summary: Optional[str] = Field(default="", description="Brief extracted summary of document body")
+
+
+class ConsistencyIssue(BaseModel):
+    """Identified inconsistency across multiple citizen documents or against stated profile facts."""
+    id: str = Field(description="Unique issue identifier")
+    severity: str = Field(default="medium", description="'high', 'medium', or 'low'")
+    message: str = Field(description="Plain-language description of mismatch")
+    documents: list[str] = Field(default_factory=list, description="Document filenames or types involved in the conflict")
+    field_name: str = Field(default="", description="Field with conflicting values (e.g. holder_name, date_of_birth, annual_income)")
+    evidence: str = Field(default="", description="Verbatim quote or evidence string showing conflict")
+
+
+class DocumentConsistencyReport(BaseModel):
+    """Overall consistency audit report across all citizen documents and profile facts."""
+    issues: list[ConsistencyIssue] = Field(default_factory=list)
+    is_consistent: bool = True
+    checked_at: Optional[str] = None
+
+
+class StoredDocumentMetadata(BaseModel):
+    """Metadata record for an encrypted document stored inside data/vault/<user_id>/."""
+    doc_id: str
+    user_id: str
+    filename: str
+    doc_type: str
+    holder_name: Optional[str] = None
+    issue_date: Optional[str] = None
+    expiry_date: Optional[str] = None
+    income_amount: Optional[int] = None
+    id_last4: Optional[str] = None
+    linked_scheme_ids: list[str] = Field(default_factory=list)
+    confidence: float = 1.0
+    created_at: str
+    file_path: str
+    mime_type: str = "image/jpeg"
+
+
+# --- 7. Phase 2 Document Validity & Expiry Schemas ---
+
+class ReviewerAuditResult(BaseModel):
+    """Auditing verdict returned by second-pass Reviewer LLM."""
+    agrees: bool = Field(description="Whether the Reviewer agrees with the primary verdict")
+    reason: str = Field(description="Detailed evidentiary reason for agreement or disagreement")
+    audit_confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+
+
+class DocumentValidityVerdict(BaseModel):
+    """LLM decision regarding document validity, days remaining, and renewal actions."""
+    doc_id: str
+    doc_type: str
+    status: str = Field(description="'VALID', 'EXPIRING_SOON', 'EXPIRED', or 'NEEDS_REVIEW'")
+    expiry_date: Optional[str] = Field(default=None, description="Computed or printed expiration date (YYYY-MM-DD)")
+    days_remaining: Optional[int] = Field(default=None, description="Days between current injected date and expiry_date")
+    date_calculation_reasoning: str = Field(description="Explicit date arithmetic explaining days remaining relative to today")
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    needs_review: bool = False
+    review_reason: Optional[str] = None
+    affected_applications: list[str] = Field(default_factory=list, description="Applications blocked or impacted by this document")
+    renewal_steps: list[str] = Field(default_factory=list, description="Step-by-step renewal instructions for the citizen")
+    nearest_office_guidance: Optional[str] = Field(default="Nearest Tehsil Revenue Office or CSC Center")
+    regulatory_disclaimer: str = "We detect expiry and guide renewal steps, but you must renew the document yourself with the issuing revenue authority."
+
+
+class DocumentHealthSummary(BaseModel):
+    """Overall document health summary with circular score metrics and renewal urgency list."""
+    user_id: str
+    total_documents: int
+    valid_count: int
+    expiring_soon_count: int
+    expired_count: int
+    health_percent: int
+    verdicts: list[DocumentValidityVerdict] = Field(default_factory=list)
+    generated_at: str
+    disclaimer: str = "The system detects expiry and provides renewal guidance, but cannot renew documents on your behalf."
+
+
+# --- 8. Phase 3 Scheme Policy Changes & Extracted Deadlines ---
+
+class SchemeChangeSummary(BaseModel):
+    """AI-detected policy change between official portal snapshot and current gazette."""
+    id: str = Field(description="Unique change event identifier")
+    scheme_id: str = Field(description="Scheme identifier affected (e.g. nsp-scholarship, pm-kisan)")
+    summary: str = Field(description="Plain-language description of policy update (e.g. 'Income ceiling raised to ₹3.0 Lakh')")
+    before: str = Field(description="Previous policy requirement or text")
+    after: str = Field(description="New updated policy requirement or text")
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    detected_on: str = Field(description="Date change was detected (YYYY-MM-DD)")
+    status: str = Field(default="NEEDS_REVIEW", description="'NEEDS_REVIEW', 'APPROVED', or 'REJECTED'")
+    affects_user: bool = False
+    evidence_quotes: list[str] = Field(default_factory=list, description="Verbatim quote copied from official portal text")
+
+
+class ExtractedDeadline(BaseModel):
+    """Application window or milestone date extracted from government portal with evidence quote."""
+    id: str = Field(description="Unique deadline identifier")
+    scheme_id: str = Field(description="Scheme identifier")
+    stage: str = Field(description="Milestone stage (e.g. 'Fresh Applications Close', 'Institute Verification')")
+    date_str: str = Field(description="Normalized date string (e.g. '2026-03-31')")
+    source_quote: str = Field(description="Verbatim line from portal text as evidence")
+    days_remaining: Optional[int] = Field(default=None, description="Days remaining from current date")
+    status: str = Field(default="open", description="'open', 'closing_soon', or 'closed'")
+    extracted_on: str = Field(description="Date extracted (YYYY-MM-DD)")
+
+
+class SchemeExtractionBundle(BaseModel):
+    """Structured result returned by LLM comparing official portal text with snapshot."""
+    changes: list[SchemeChangeSummary] = Field(default_factory=list)
+    deadlines: list[ExtractedDeadline] = Field(default_factory=list)
+    has_policy_change: bool = False
+    audit_notes: str = ""
+
+
+# --- 9. Phase 4 Notification & Outbound Message Draft Schemas ---
+
+class OutboundMessageDraft(BaseModel):
+    """AI-prepared message awaiting explicit citizen approval before dispatch."""
+    id: str = Field(description="Unique draft identifier")
+    user_id: str = Field(description="Citizen ID this draft was prepared for")
+    channel: str = Field(description="'email', 'telegram', 'sms', or 'in_app'")
+    recipient: str = Field(description="Email address, Telegram handle/chat_id, or mobile number")
+    subject: Optional[str] = Field(default=None, description="Email subject line or notification title")
+    body: str = Field(description="Message body text generated in the citizen's preferred language")
+    language: str = Field(default="en", description="Language of generated message (e.g. 'en', 'hi')")
+    status: str = Field(default="PENDING_APPROVAL", description="'PENDING_APPROVAL', 'APPROVED', 'SENT', or 'DISCARDED'")
+    created_at: str = Field(description="ISO timestamp when draft was formulated")
+    sent_at: Optional[str] = Field(default=None, description="ISO timestamp when user approved and message was sent")
+    approval_guarantee: str = "Nothing is sent without your approval."
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class DraftGenerationRequest(BaseModel):
+    """Request payload for the LLM to draft an outbound citizen alert or inquiry."""
+    user_id: str
+    event_type: str = Field(description="e.g. 'DOCUMENT_EXPIRY', 'DEADLINE_REMINDER', 'TEHSIL_VERIFICATION_INQUIRY', 'CSC_APPOINTMENT'")
+    recipient: str
+    channel: str = Field(default="email", description="'email', 'telegram', or 'sms'")
+    language: str = Field(default="en", description="'en' or 'hi'")
+    context_data: dict[str, Any] = Field(default_factory=dict)
+
+
+class DraftActionResponse(BaseModel):
+    """Result of draft approval, sending, or discard action."""
+    draft_id: str
+    status: str
+    dispatched: bool
+    channel: str
+    message: str
+
+
+class GeneratedDraftContent(BaseModel):
+    """Structured response from LLM for message drafting."""
+    subject: Optional[str] = Field(default=None, description="Clear, concise subject line (for email) or header")
+    body: str = Field(description="Polite, clear, actionable message body in requested language with masked Aadhaar")
+    language: str = Field(default="en", description="Detected or generated language ('en', 'hi')")
+    reasoning: str = Field(default="", description="Reasoning behind tone and wording")
+
+
+# --- 10. Phase 5 LLM Matcher & Profile Conflict Schemas ---
+
+class GroundedEligibilityVerdict(BaseModel):
+    """LLM-grounded eligibility assessment for a scheme backed by verbatim source evidence."""
+    scheme_id: str
+    scheme_name: str
+    status: str = Field(description="'ELIGIBLE', 'ALMOST', 'NOT_ELIGIBLE', or 'NEEDS_REVIEW'")
+    confidence: float = Field(ge=0.0, le=1.0, description="Confidence score from 0.0 to 1.0")
+    evidence_quotes: list[str] = Field(default_factory=list, description="Verbatim quotes copied from official source text")
+    satisfied_reasons: list[str] = Field(default_factory=list)
+    missing_fields: list[str] = Field(default_factory=list)
+    disqualifying_reasons: list[str] = Field(default_factory=list)
+    date_calculation_reasoning: str = Field(default="", description="Calculations for age, dates, or expiry")
+    explanation: str = Field(default="", description="Citizen-facing summary of why they qualify or what is missing")
+    benefit_summary: str = Field(default="")
+    documents_required: list[str] = Field(default_factory=list)
+    needs_review: bool = False
+    audit_notes: str = ""
+
+
+class RejectionExplanation(BaseModel):
+    """Compassionate, grounded explanation of why a citizen was rejected or almost eligible."""
+    scheme_id: str
+    scheme_name: str
+    plain_language_reason: str = Field(description="Clear explanation in citizen's language")
+    blocking_criteria: list[str] = Field(default_factory=list)
+    evidence_quote: str = Field(default="", description="Verbatim quote from scheme policy causing rejection")
+    suggested_next_steps: list[str] = Field(default_factory=list)
+    alternative_schemes: list[str] = Field(default_factory=list)
+
+
+class ProfileConflictItem(BaseModel):
+    """Discrepancy detected between self-reported citizen profile and verified vault documents."""
+    field_name: str
+    stated_value: str
+    document_value: str
+    document_source: str
+    conflict_severity: str = Field(default="MEDIUM", description="'HIGH', 'MEDIUM', 'LOW'")
+    clarification_question_en: str
+    clarification_question_hi: str
+
+
+class NextBestSchemeRecommendation(BaseModel):
+    """Alternative scheme recommendation when citizen is ineligible for primary query."""
+    scheme_id: str
+    scheme_name: str
+    match_reason: str
+    benefit_summary: str
+    confidence: float = 1.0
+
+
+
+
+
+

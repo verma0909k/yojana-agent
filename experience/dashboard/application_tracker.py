@@ -140,6 +140,10 @@ class ApplicationTracker:
                 results.append(d)
             return results
 
+    def get_tasks_by_citizen(self, citizen_id: str) -> list[dict[str, Any]]:
+        """Alias for list_tasks(citizen_id)."""
+        return self.list_tasks(citizen_id=citizen_id)
+
     def update_task_status(
         self,
         task_id: str,

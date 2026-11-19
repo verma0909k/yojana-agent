@@ -6,9 +6,11 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
+from experience.actions.notifier import NotificationService
 from experience.actions.pdf_filler import generate_application_pdf
 from experience.dashboard.application_tracker import ApplicationTracker
 from experience.intake.hinglish import NaturalLanguageIntake
+from experience.intake.vault import DocumentVault
 from knowledge.monitor import MemoryStore
 from knowledge.rule_engine import evaluate_all, evaluate_scheme
 from knowledge.schemes.data import load_all_schemes
@@ -16,6 +18,7 @@ from knowledge.semantic_search import SemanticSearchEngine
 from knowledge.verifier import Verifier
 from shared.schemas import (
     CitizenProfile,
+    DraftGenerationRequest,
     EligibilityStatus,
     Fact,
     MatchResult,
@@ -117,6 +120,32 @@ class SaveMemoryInput(ToolBaseInput):
 
 class RetrieveMemoryInput(ToolBaseInput):
     key: str = Field(description="Storage key to retrieve")
+
+
+class GetVaultDocumentsInput(ToolBaseInput):
+    user_id: str = Field(default="active_citizen", description="Citizen identifier whose vault documents to inspect")
+
+
+class DraftNotificationInput(ToolBaseInput):
+    user_id: str = Field(default="active_citizen", description="Citizen identifier")
+    event_type: str = Field(description="Event type e.g. DOCUMENT_EXPIRY, DEADLINE_REMINDER, SCHEME_UPDATE")
+    recipient: str = Field(description="Email address, Telegram handle, or mobile number")
+    channel: str = Field(default="email", description="Delivery channel ('email', 'telegram', 'sms')")
+    language: str = Field(default="en", description="Target language ('en' or 'hi')")
+    context_data: Optional[dict[str, Any]] = Field(default_factory=dict, description="Context parameters for the message")
+
+
+class ExplainRejectionInput(ToolBaseInput):
+    scheme_id: str = Field(description="Scheme ID to explain rejection for")
+    profile_data: Optional[dict[str, Any]] = Field(default=None, description="Citizen profile facts")
+    language: str = Field(default="en", description="Language code: 'en' or 'hi'")
+
+
+class RecommendNextBestInput(ToolBaseInput):
+    ineligible_scheme_id: str = Field(description="Scheme for which applicant did not qualify")
+    profile_data: Optional[dict[str, Any]] = Field(default=None, description="Citizen profile facts")
+    top_k: int = Field(default=3, description="Number of alternative schemes to recommend")
+
 
 
 # --- Tool Definition Wrapper ---
@@ -294,15 +323,27 @@ class ToolRegistry:
 
         # 8. compare_eligibility
         def run_compare_eligibility(profile_data: Optional[dict[str, Any]] = None, scheme_ids: Optional[list[str]] = None):
+            from knowledge.matcher import SchemeMatcher
             all_schemes = load_all_schemes()
             if scheme_ids:
                 targets = [s for s in all_schemes if s.id in scheme_ids]
             else:
                 targets = all_schemes
             profile = _dict_to_profile(profile_data)
-            results = evaluate_all(profile, targets)
+            matcher = SchemeMatcher()
+            if scheme_ids:
+                if matcher.decision_mode == "rules" or not matcher.llm_matcher.llm.is_available():
+                    results = evaluate_all(profile, targets)
+                else:
+                    verdicts = matcher.llm_matcher.evaluate_all_grounded(profile, targets)
+                    results = [matcher._verdict_to_match_result(v, targets) for v in verdicts]
+            else:
+                if matcher.decision_mode != "rules" and not matcher.llm_matcher.llm.is_available():
+                    results = evaluate_all(profile, targets)
+                else:
+                    results = matcher.match(profile)
             return [r.model_dump() for r in results]
-        self.register("compare_eligibility", "Evaluates citizen facts against scheme criteria using deterministic rule engine.", CompareEligibilityInput, run_compare_eligibility)
+        self.register("compare_eligibility", "Evaluates citizen facts against scheme criteria using LLM grounding (or rules fallback).", CompareEligibilityInput, run_compare_eligibility)
 
         # 9. check_required_documents
         def run_check_documents(scheme_id: str, available_documents: list[str]):
@@ -418,3 +459,64 @@ class ToolRegistry:
             profile = memory_store.get_profile(key)
             return {"key": key, "profile": profile.model_dump() if profile else None}
         self.register("retrieve_agent_memory", "Retrieves stored citizen profile from SQLite persistent memory.", RetrieveMemoryInput, run_retrieve_memory)
+
+        # 16. get_vault_documents
+        def run_get_vault_documents(user_id: str = "active_citizen"):
+            vault = DocumentVault()
+            docs = vault.list_documents(user_id=user_id)
+            return [d.model_dump() for d in docs]
+        self.register("get_vault_documents", "Inspects citizen's verified identity and revenue documents stored in the encrypted vault.", GetVaultDocumentsInput, run_get_vault_documents)
+
+        # 17. draft_notification
+        def run_draft_notification(
+            user_id: str = "active_citizen",
+            event_type: str = "SCHEME_UPDATE",
+            recipient: str = "",
+            channel: str = "email",
+            language: str = "en",
+            context_data: Optional[dict[str, Any]] = None,
+        ):
+            notifier = NotificationService()
+            req = DraftGenerationRequest(
+                user_id=user_id,
+                event_type=event_type,
+                recipient=recipient,
+                channel=channel,
+                language=language,
+                context_data=context_data or {},
+            )
+            draft = notifier.draft_message(req)
+            return draft.model_dump()
+        self.register("draft_notification", "Drafts an AI personalized alert or reminder in citizen's language awaiting human approval.", DraftNotificationInput, run_draft_notification)
+
+        # 18. explain_rejection
+        def run_explain_rejection(
+            scheme_id: str,
+            profile_data: Optional[dict[str, Any]] = None,
+            language: str = "en",
+        ):
+            from knowledge.llm_matcher import LLMMatcher
+            all_schemes = {s.id: s for s in load_all_schemes()}
+            scheme = all_schemes.get(scheme_id)
+            if not scheme:
+                raise ValueError(f"Scheme ID '{scheme_id}' not found.")
+            profile = _dict_to_profile(profile_data)
+            matcher = LLMMatcher()
+            verdict = matcher.evaluate_scheme_grounded(profile, scheme)
+            explanation = matcher.explain_rejection(verdict, language=language)
+            return explanation.model_dump()
+        self.register("explain_rejection", "Provides compassionate, clear plain-language explanation of why a citizen does not qualify.", ExplainRejectionInput, run_explain_rejection)
+
+        # 19. recommend_next_best
+        def run_recommend_next_best(
+            ineligible_scheme_id: str,
+            profile_data: Optional[dict[str, Any]] = None,
+            top_k: int = 3,
+        ):
+            from knowledge.llm_matcher import LLMMatcher
+            profile = _dict_to_profile(profile_data)
+            matcher = LLMMatcher()
+            recs = matcher.recommend_next_best(profile, ineligible_scheme_id=ineligible_scheme_id, top_k=top_k)
+            return [r.model_dump() for r in recs]
+        self.register("recommend_next_best", "Recommends closest matching alternative government schemes for ineligible applicants.", RecommendNextBestInput, run_recommend_next_best)
+
