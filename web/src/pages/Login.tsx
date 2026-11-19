@@ -3,12 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { auth } from '../auth';
 import { api } from '../api';
-import { Globe, ArrowRight, ShieldCheck, AlertCircle, X, Mail } from 'lucide-react';
+import { Globe, ArrowRight, ShieldCheck, AlertCircle, X, Mail, Phone } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const { language, setLanguage, t } = useLanguage();
   const navigate = useNavigate();
 
+  const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
+  const [emailInput, setEmailInput] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [attempts, setAttempts] = useState(0);
@@ -20,7 +22,44 @@ export const Login: React.FC = () => {
   const [googleName, setGoogleName] = useState('');
   const [googleError, setGoogleError] = useState<string | null>(null);
 
-  const handleSendOtp = async (e: React.FormEvent) => {
+  const handleSendEmailOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    const cleanEmail = emailInput.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+      setError('Please enter a valid Gmail / Email address (e.g. yourname@gmail.com).');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // Dispatches OTP directly to citizen's Gmail inbox
+      await api.sendEmailOtp(cleanEmail);
+      sessionStorage.setItem('yojana_pending_email', cleanEmail);
+      sessionStorage.removeItem('yojana_pending_phone');
+      setIsLoading(false);
+      navigate('/verify', {
+        state: {
+          email: cleanEmail,
+          method: 'email',
+        },
+      });
+    } catch {
+      setIsLoading(false);
+      sessionStorage.setItem('yojana_pending_email', cleanEmail);
+      sessionStorage.removeItem('yojana_pending_phone');
+      navigate('/verify', {
+        state: {
+          email: cleanEmail,
+          method: 'email',
+        },
+      });
+    }
+  };
+
+  const handleSendPhoneOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -39,21 +78,24 @@ export const Login: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // Dispatches OTP to backend service / SMS gateway
       await api.sendOtp(cleanNum);
       sessionStorage.setItem('yojana_pending_phone', `+91 ${cleanNum.slice(0, 5)} ${cleanNum.slice(5)}`);
+      sessionStorage.removeItem('yojana_pending_email');
       setIsLoading(false);
       navigate('/verify', {
         state: {
           phone: `+91 ${cleanNum.slice(0, 5)} ${cleanNum.slice(5)}`,
+          method: 'phone',
         },
       });
     } catch {
       setIsLoading(false);
       sessionStorage.setItem('yojana_pending_phone', `+91 ${cleanNum.slice(0, 5)} ${cleanNum.slice(5)}`);
+      sessionStorage.removeItem('yojana_pending_email');
       navigate('/verify', {
         state: {
           phone: `+91 ${cleanNum.slice(0, 5)} ${cleanNum.slice(5)}`,
+          method: 'phone',
         },
       });
     }
@@ -104,9 +146,43 @@ export const Login: React.FC = () => {
       {/* Main Centered Login Card */}
       <div className="max-w-md w-full mx-auto my-auto py-8">
         <div className="bg-white rounded-card shadow-soft-hover border border-slate-200 p-6 sm:p-8">
-          <div className="text-center mb-6">
+          <div className="text-center mb-5">
             <h1 className="text-2xl font-bold text-slate-900 mb-1">{t('app.name')}</h1>
             <p className="text-sm text-slate-600 font-medium">{t('app.tagline')}</p>
+          </div>
+
+          {/* Delivery Method Selection Tabs */}
+          <div className="flex border-b border-slate-200 mb-5">
+            <button
+              type="button"
+              onClick={() => {
+                setLoginMethod('email');
+                setError(null);
+              }}
+              className={`flex-1 py-2.5 text-xs font-bold border-b-2 transition flex items-center justify-center gap-1.5 min-h-[40px] ${
+                loginMethod === 'email'
+                  ? 'border-saffron text-saffron'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Mail className="w-4 h-4" />
+              <span>Gmail / Email OTP</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setLoginMethod('phone');
+                setError(null);
+              }}
+              className={`flex-1 py-2.5 text-xs font-bold border-b-2 transition flex items-center justify-center gap-1.5 min-h-[40px] ${
+                loginMethod === 'phone'
+                  ? 'border-saffron text-saffron'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Phone className="w-3.5 h-3.5" />
+              <span>Mobile OTP</span>
+            </button>
           </div>
 
           {/* Error Banner */}
@@ -117,37 +193,71 @@ export const Login: React.FC = () => {
             </div>
           )}
 
-          {/* Mobile Login Form */}
-          <form onSubmit={handleSendOtp} className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                {t('auth.mobile_label')}
-              </label>
-              <div className="flex rounded-lg border border-slate-300 focus-within:border-saffron focus-within:ring-2 focus-within:ring-saffron/20 transition overflow-hidden">
-                <span className="bg-slate-100 text-slate-600 px-3.5 py-3 text-sm font-semibold border-r border-slate-200 flex items-center min-h-[48px]">
-                  +91
-                </span>
-                <input
-                  type="tel"
-                  maxLength={10}
-                  placeholder="98765 43210"
-                  value={mobileNumber}
-                  onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, ''))}
-                  className="flex-1 px-3.5 py-3 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none min-h-[48px]"
-                  autoFocus
-                />
+          {/* Gmail / Email Login Form */}
+          {loginMethod === 'email' ? (
+            <form onSubmit={handleSendEmailOtp} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-800 mb-1.5">
+                  Your Gmail Address
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                  <input
+                    type="email"
+                    placeholder="yourname@gmail.com"
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    className="w-full pl-10 pr-3.5 py-3 text-base text-slate-900 placeholder:text-slate-400 rounded-lg border border-slate-300 focus:outline-none focus:border-saffron focus:ring-2 focus:ring-saffron/20 min-h-[48px]"
+                    autoFocus
+                  />
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  We will send a 6-digit verification code directly to your Gmail inbox.
+                </p>
               </div>
-            </div>
 
-            <button
-              type="submit"
-              disabled={isLoading || mobileNumber.length !== 10}
-              className="w-full py-3 px-4 bg-saffron hover:bg-saffron-600 disabled:opacity-50 disabled:pointer-events-none text-white rounded-lg font-bold text-base transition flex items-center justify-center gap-2 min-h-[48px] shadow-sm"
-            >
-              {isLoading ? 'Sending OTP...' : t('auth.send_otp')}
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={isLoading || !emailInput.includes('@')}
+                className="w-full py-3 px-4 bg-saffron hover:bg-saffron-600 disabled:opacity-50 disabled:pointer-events-none text-white rounded-lg font-bold text-base transition flex items-center justify-center gap-2 min-h-[48px] shadow-sm"
+              >
+                {isLoading ? 'Sending to Gmail...' : 'Send OTP to Gmail'}
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </form>
+          ) : (
+            /* Mobile Login Form */
+            <form onSubmit={handleSendPhoneOtp} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-800 mb-1.5">
+                  {t('auth.mobile_label')}
+                </label>
+                <div className="flex rounded-lg border border-slate-300 focus-within:border-saffron focus-within:ring-2 focus-within:ring-saffron/20 transition overflow-hidden">
+                  <span className="bg-slate-100 text-slate-600 px-3.5 py-3 text-sm font-semibold border-r border-slate-200 flex items-center min-h-[48px]">
+                    +91
+                  </span>
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    placeholder="98765 43210"
+                    value={mobileNumber}
+                    onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, ''))}
+                    className="flex-1 px-3.5 py-3 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none min-h-[48px]"
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading || mobileNumber.length !== 10}
+                className="w-full py-3 px-4 bg-saffron hover:bg-saffron-600 disabled:opacity-50 disabled:pointer-events-none text-white rounded-lg font-bold text-base transition flex items-center justify-center gap-2 min-h-[48px] shadow-sm"
+              >
+                {isLoading ? 'Sending OTP...' : t('auth.send_otp')}
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </form>
+          )}
 
           {/* Divider */}
           <div className="relative my-6">
@@ -159,9 +269,9 @@ export const Login: React.FC = () => {
             </div>
           </div>
 
-          {/* Alternate OAuth / Email Login Buttons */}
+          {/* Alternate OAuth / Demo Login Buttons */}
           <div className="space-y-2.5">
-            {/* Google Login Button */}
+            {/* Google Fast Login Button */}
             <button
               type="button"
               onClick={() => setShowGoogleModal(true)}
@@ -173,7 +283,7 @@ export const Login: React.FC = () => {
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
               </svg>
-              <span>{t('auth.google')}</span>
+              <span>{t('auth.google')} (Direct Login)</span>
             </button>
 
             {/* Prominent Demo Account Button */}
@@ -186,7 +296,7 @@ export const Login: React.FC = () => {
             </button>
           </div>
 
-          {/* Privacy & Aadhaar Security Note */}
+          {/* Privacy & Security Note */}
           <div className="mt-6 p-3 bg-slate-50 rounded-lg flex items-center gap-2 text-xs text-slate-500 border border-slate-100">
             <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>{t('auth.aadhaar_note')}</span>

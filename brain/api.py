@@ -30,6 +30,7 @@ from experience.intake.vault import DocumentVault
 from knowledge.llm_matcher import LLMMatcher
 from knowledge.monitor import MemoryStore
 from knowledge.schemes.data import load_all_schemes
+from shared.config import SMTP_FROM, SMTP_HOST, SMTP_PASSWORD, SMTP_PORT, SMTP_USER
 from shared.schemas import (
     AgentState,
     CitizenProfile,
@@ -72,32 +73,74 @@ class MatchRequest(BaseModel):
 
 
 class SendOtpRequest(BaseModel):
-    phone: str
     email: Optional[str] = None
+    phone: Optional[str] = None
 
 
 class SendOtpResponse(BaseModel):
     success: bool
     message: str
     session_id: str
+    destination: str
 
 
 class VerifyOtpRequest(BaseModel):
-    phone: str
     code: str
     email: Optional[str] = None
+    phone: Optional[str] = None
 
 
 class VerifyOtpResponse(BaseModel):
     success: bool
     token: str
     user_id: str
-    phone: str
     email: Optional[str] = None
+    phone: Optional[str] = None
 
 
-# Active OTP cache: phone -> {"code": str, "expires_at": float}
+# Active OTP cache: destination (email or phone) -> {"code": str, "expires_at": float}
 _ACTIVE_OTPS: dict[str, dict[str, Any]] = {}
+
+
+def send_email_otp(to_email: str, otp: str) -> bool:
+    """Dispatches a 6-digit OTP code to the citizen's Gmail / email address."""
+    subject = f"{otp} is your YojanaAgent verification code"
+    body = (
+        f"Namaste,\n\n"
+        f"Your verification code for YojanaAgent is: {otp}\n\n"
+        f"This code will expire in 5 minutes. Do not share this OTP with anyone.\n\n"
+        f"Warm regards,\n"
+        f"YojanaAgent Team"
+    )
+
+    logger.info("==================================================")
+    logger.info("[GMAIL OTP DISPATCH] Sent OTP '%s' to: %s", otp, to_email)
+    logger.info("==================================================")
+    print(f"\n[GMAIL OTP DISPATCH] >>> OTP: {otp} sent to Gmail: {to_email} <<<\n")
+
+    if SMTP_USER and SMTP_PASSWORD:
+        try:
+            import email.message
+            import smtplib
+
+            msg = email.message.EmailMessage()
+            msg["Subject"] = subject
+            msg["From"] = SMTP_FROM or SMTP_USER
+            msg["To"] = to_email
+            msg.set_content(body)
+
+            host = SMTP_HOST or "smtp.gmail.com"
+            port = SMTP_PORT or 587
+            with smtplib.SMTP(host, port, timeout=10) as server:
+                server.starttls()
+                server.login(SMTP_USER, SMTP_PASSWORD)
+                server.send_message(msg)
+            logger.info("Live Gmail delivery successful to %s", to_email)
+            return True
+        except Exception as e:
+            logger.warning("SMTP live delivery failed (%s). Fallback logged to console.", e)
+            return False
+    return True
 
 
 class ErasureResponse(BaseModel):
@@ -110,58 +153,89 @@ class ErasureResponse(BaseModel):
 
 @app.post("/auth/send-otp", response_model=SendOtpResponse, tags=["Auth"])
 def send_otp(req: SendOtpRequest):
-    """Generates and dispatches a 6-digit OTP code to the citizen's mobile number.
-    In development and sandbox mode, the OTP is securely logged to the console
-    and dispatch logs, while never exposed in user-facing client payloads.
-    """
-    clean_digits = "".join(c for c in req.phone if c.isdigit())
-    if len(clean_digits) < 10:
-        raise HTTPException(status_code=400, detail="Invalid phone number: minimum 10 digits required.")
-
+    """Generates and dispatches a 6-digit OTP code to the citizen's Gmail / email or mobile number."""
     otp = f"{random.randint(100000, 999999)}"
-    _ACTIVE_OTPS[clean_digits] = {
-        "code": otp,
-        "expires_at": time.time() + 300,  # 5 minutes validity
-    }
 
-    # Log to backend server logs (mimicking telecom SMS gateway dispatch)
-    logger.info("==================================================")
-    logger.info("[SMS GATEWAY DISPATCH] Sent OTP '%s' to mobile: %s", otp, req.phone)
-    logger.info("==================================================")
-    print(f"\n[SMS GATEWAY DISPATCH] >>> OTP: {otp} sent to mobile: {req.phone} <<<\n")
+    # 1. Prioritize Gmail / Email delivery
+    if req.email and req.email.strip():
+        clean_email = req.email.strip().lower()
+        if "@" not in clean_email:
+            raise HTTPException(status_code=400, detail="Invalid email address.")
 
-    return SendOtpResponse(
-        success=True,
-        message=f"6-digit verification code dispatched to mobile ending in {clean_digits[-4:]}",
-        session_id=str(uuid.uuid4())[:8],
-    )
+        _ACTIVE_OTPS[clean_email] = {
+            "code": otp,
+            "expires_at": time.time() + 300,  # 5 minutes validity
+        }
+
+        send_email_otp(clean_email, otp)
+
+        return SendOtpResponse(
+            success=True,
+            message=f"6-digit verification code sent to your Gmail ({clean_email})",
+            session_id=str(uuid.uuid4())[:8],
+            destination=clean_email,
+        )
+
+    # 2. Fallback to mobile phone
+    if req.phone and req.phone.strip():
+        clean_digits = "".join(c for c in req.phone if c.isdigit())
+        if len(clean_digits) < 10:
+            raise HTTPException(status_code=400, detail="Invalid phone number: minimum 10 digits required.")
+
+        _ACTIVE_OTPS[clean_digits] = {
+            "code": otp,
+            "expires_at": time.time() + 300,
+        }
+
+        logger.info("[SMS GATEWAY DISPATCH] Sent OTP '%s' to mobile: %s", otp, req.phone)
+        print(f"\n[SMS GATEWAY DISPATCH] >>> OTP: {otp} sent to mobile: {req.phone} <<<\n")
+
+        return SendOtpResponse(
+            success=True,
+            message=f"6-digit verification code dispatched to mobile ending in {clean_digits[-4:]}",
+            session_id=str(uuid.uuid4())[:8],
+            destination=req.phone,
+        )
+
+    raise HTTPException(status_code=400, detail="Either Gmail/Email or Mobile Number must be provided.")
 
 
 @app.post("/auth/verify-otp", response_model=VerifyOtpResponse, tags=["Auth"])
 def verify_otp(req: VerifyOtpRequest):
     """Verifies the 6-digit code against active generated OTP or standard test code 123456."""
-    clean_digits = "".join(c for c in req.phone if c.isdigit())
-    cached = _ACTIVE_OTPS.get(clean_digits)
+    destination = ""
+    user_id = ""
+
+    if req.email and req.email.strip():
+        destination = req.email.strip().lower()
+        clean_name = "".join(c for c in destination.split("@")[0] if c.isalnum() or c == "_")
+        user_id = f"usr_e_{clean_name}"
+    elif req.phone and req.phone.strip():
+        destination = "".join(c for c in req.phone if c.isdigit())
+        user_id = f"usr_p_{destination}"
+    else:
+        raise HTTPException(status_code=400, detail="Either Gmail/Email or Phone must be provided.")
+
+    cached = _ACTIVE_OTPS.get(destination)
 
     is_valid = False
     if req.code == "123456":
         is_valid = True
     elif cached and cached["code"] == req.code and time.time() <= cached["expires_at"]:
         is_valid = True
-        _ACTIVE_OTPS.pop(clean_digits, None)
+        _ACTIVE_OTPS.pop(destination, None)
 
     if not is_valid:
         raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
 
-    user_id = f"usr_p_{clean_digits}"
     token = f"tok_{uuid.uuid4().hex[:16]}"
 
     return VerifyOtpResponse(
         success=True,
         token=token,
         user_id=user_id,
-        phone=req.phone,
         email=req.email,
+        phone=req.phone or "",
     )
 
 

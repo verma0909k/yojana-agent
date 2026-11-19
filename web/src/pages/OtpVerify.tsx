@@ -3,15 +3,18 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { auth } from '../auth';
 import { api } from '../api';
-import { CheckCircle2, AlertCircle, ArrowLeft, RefreshCw, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, AlertCircle, ArrowLeft, RefreshCw, Mail, ShieldCheck } from 'lucide-react';
 
 export const OtpVerify: React.FC = () => {
   const { t } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
 
-  const stateData = location.state as { phone?: string } | undefined;
-  const phone = stateData?.phone || sessionStorage.getItem('yojana_pending_phone') || '+91 98765 12345';
+  const stateData = location.state as { phone?: string; email?: string; method?: 'email' | 'phone' } | undefined;
+  const email = stateData?.email || sessionStorage.getItem('yojana_pending_email') || '';
+  const phone = stateData?.phone || sessionStorage.getItem('yojana_pending_phone') || '';
+  const isEmail = Boolean(email) || stateData?.method === 'email';
+  const targetRecipient = isEmail ? email : phone || '+91 98765 12345';
 
   const [digits, setDigits] = useState<string[]>(['', '', '', '', '', '']);
   const [error, setError] = useState<string | null>(null);
@@ -78,28 +81,49 @@ export const OtpVerify: React.FC = () => {
     setError(null);
 
     try {
-      const res = await api.verifyOtp(phone, code);
-      setIsVerifying(false);
+      if (isEmail) {
+        const res = await api.verifyEmailOtp(email, code);
+        setIsVerifying(false);
 
-      if (res.success) {
-        setIsSuccess(true);
-        // Login with citizen's specific phone number & user ID
-        auth.loginWithPhone(phone);
-        setTimeout(() => {
-          const returnUrl = auth.getReturnUrl();
-          navigate(returnUrl);
-        }, 800);
+        if (res.success) {
+          setIsSuccess(true);
+          auth.loginWithEmail(email);
+          setTimeout(() => {
+            const returnUrl = auth.getReturnUrl();
+            navigate(returnUrl);
+          }, 800);
+        } else {
+          setError(t('otp.wrong_code'));
+          setShake(true);
+          setTimeout(() => setShake(false), 500);
+        }
       } else {
-        setError(t('otp.wrong_code'));
-        setShake(true);
-        setTimeout(() => setShake(false), 500);
+        const res = await api.verifyOtp(phone, code);
+        setIsVerifying(false);
+
+        if (res.success) {
+          setIsSuccess(true);
+          auth.loginWithPhone(phone);
+          setTimeout(() => {
+            const returnUrl = auth.getReturnUrl();
+            navigate(returnUrl);
+          }, 800);
+        } else {
+          setError(t('otp.wrong_code'));
+          setShake(true);
+          setTimeout(() => setShake(false), 500);
+        }
       }
     } catch {
       setIsVerifying(false);
       // Fallback verification for offline or test code 123456
       if (code === '123456' || code === sessionStorage.getItem('yojana_active_otp')) {
         setIsSuccess(true);
-        auth.loginWithPhone(phone);
+        if (isEmail) {
+          auth.loginWithEmail(email);
+        } else {
+          auth.loginWithPhone(phone);
+        }
         setTimeout(() => {
           const returnUrl = auth.getReturnUrl();
           navigate(returnUrl);
@@ -118,7 +142,11 @@ export const OtpVerify: React.FC = () => {
     setError(null);
     inputRefs.current[0]?.focus();
     try {
-      await api.sendOtp(phone);
+      if (isEmail) {
+        await api.sendEmailOtp(email);
+      } else {
+        await api.sendOtp(phone);
+      }
     } catch {
       // Handled silently
     }
@@ -132,30 +160,38 @@ export const OtpVerify: React.FC = () => {
           className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-5 font-medium min-h-[44px]"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>{t('otp.change_number')}</span>
+          <span>{isEmail ? 'Change Gmail' : t('otp.change_number')}</span>
         </Link>
 
-        {/* Security Dispatch Notice (No exposed OTP cheat code on screen!) */}
+        {/* Security Dispatch Notice */}
         <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-xl">
           <div className="flex items-center gap-2 mb-1.5">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+            {isEmail ? (
+              <Mail className="w-4 h-4 text-saffron shrink-0" />
+            ) : (
+              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+            )}
             <span className="text-xs font-bold text-slate-800">
-              SMS Dispatched
+              {isEmail ? 'OTP Dispatched to Gmail' : 'SMS Dispatched'}
             </span>
           </div>
           <p className="text-xs text-slate-600 leading-relaxed">
             A 6-digit verification code has been dispatched to{' '}
-            <strong className="text-slate-900 font-semibold">{phone}</strong>.
+            <strong className="text-slate-900 font-semibold">{targetRecipient}</strong>.
           </p>
           <p className="text-[11px] text-slate-400 mt-2 border-t border-slate-200/60 pt-2">
-            Telecom carrier delivery may take 10-30s. In testing or local environment, you can also enter demo code <span className="font-mono font-medium text-slate-600">123456</span>.
+            {isEmail
+              ? 'Please check your Gmail inbox (and Spam folder). In local test environment, code 123456 or the server console code is also accepted.'
+              : 'Telecom carrier delivery may take 10-30s. In testing mode, you can also enter demo code 123456.'}
           </p>
         </div>
 
-        <h1 className="text-2xl font-bold text-slate-900 mb-1.5">Verify Mobile</h1>
+        <h1 className="text-2xl font-bold text-slate-900 mb-1.5">
+          {isEmail ? 'Verify Your Gmail' : 'Verify Mobile'}
+        </h1>
         <p className="text-sm text-slate-600 mb-6 leading-relaxed">
           {t('otp.enter_code')}{' '}
-          <span className="font-semibold text-slate-900">{phone}</span>.
+          <span className="font-semibold text-slate-900">{targetRecipient}</span>.
         </p>
 
         {/* Success checkmark feedback */}
